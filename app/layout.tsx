@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Sora } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 
 import { PwaRegister } from "@/components/pwa-register";
 
@@ -44,6 +45,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body className={sora.className}>
         {children}
         <PwaRegister />
+        <Analytics />
       </body>
     </html>
   );
