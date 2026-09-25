@@ -1,0 +1,22 @@
+# dependencies
+node_modules/
+
+# next
+.next/
+out/
+next-env.d.ts.timestamp
+
+# local environment files
+.env
+.env.*
+!.env.example
+
+# build and editor files
+*.tsbuildinfo
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# exports
+*.zip
