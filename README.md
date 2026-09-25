@@ -1,75 +1,83 @@
 # ISRC Finder
 
-A compact Next.js/React app for finding recording ISRCs quickly. The interface keeps the original Vercel-inspired monochrome visual language, Sora typography, dense result cards, one-click copy, and keyboard-friendly suggestions.
+A Next.js application for finding recording ISRCs. It searches MusicBrainz and can use Spotify for suggestions, album artwork, catalog matching, and a small list of current popular tracks.
 
-## What it includes
+## What it does
 
-- **MusicBrainz recording search** with `isrcs`, artist credits, releases, and match scores. When a search result represents a compilation/remix without ISRCs, the app hydrates likely original recordings with a direct MusicBrainz recording lookup.
-- **Artist + Track fields** for precise searches, plus free-text and direct ISRC lookup.
-- **Spotify track suggestions** with debounced autocomplete, keyboard navigation, and Spotify album covers.
-- **Popular on Spotify** list sourced from Spotify's `Top 50 - Global` playlist, with left-aligned album artwork and a soft fade-in. It is fetched only when the app is idle.
-- **Spotify enrichment** when server-side client credentials are configured. Spotify results are conservatively merged with MusicBrainz results by shared ISRC or an unambiguous title/artist match.
-- **Installable PWA** with a generated `I` icon, web manifest, Apple touch icon, and an app-shell service worker that never caches API responses.
-- **Same-origin API routes** so browser CORS restrictions and API secrets do not affect the client.
-- **Server-side response caching**, bounded MusicBrainz queueing, request cancellation, upstream deadlines, and graceful provider fallbacks.
-- **Per-route rate limiting** for interactive public use. For a multi-region deployment, add an edge/WAF limiter in front of the app as well.
-- **Accessible controls**: combobox/listbox semantics, visible focus states, keyboard navigation, reduced-motion support, and copy status announcements.
-- **Theme persistence** using the system preference on first visit and a compact light/dark toggle afterward.
-- Baseline security headers and no `X-Powered-By` response header.
+- Search by free text, artist, track, or ISRC.
+- Return matching recordings with ISRCs, artists, releases, and match information.
+- Copy an ISRC to the clipboard.
+- Optionally provide Spotify autocomplete, album artwork, and additional catalog matches.
+- Install as a PWA on supported devices.
 
-`ISRC Finder.html` is retained only as a visual reference from the original brief. The production app is the Next.js implementation and does not use its legacy browser-side provider code.
-
-## Requirements
-
-- Node.js 20.9 or newer
-- npm 10 or newer
-
-## Run locally
-
-The repository includes an npm lockfile and a dependency override for the patched PostCSS release.
-
-```bash
-npm ci
-cp .env.example .env.local
-npm run dev
-```
-
-On PowerShell, use `Copy-Item .env.example .env.local` instead of `cp`.
-
-Open [http://localhost:3000](http://localhost:3000).
-
-The app is usable with MusicBrainz alone. Spotify is optional, but it is required for autocomplete and album covers:
-
-- Add `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` for Spotify autocomplete, album covers, catalog enrichment, and the Popular on Spotify list. Create an app in the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) and use the Client Credentials flow.
-- The Popular on Spotify list is fixed to Spotify's `Top 50 - Global` playlist (`37i9dQZEVXbMDoHDwVN2tF`) in the server code; there is no playlist environment variable.
-- Set `SPOTIFY_MARKET` to the desired two-letter market when regional catalog behavior matters.
-- The Spotify client secret is used only by the server route and is never included in the client bundle.
-- Set `MUSICBRAINZ_USER_AGENT` to a descriptive application name plus a contact URL or email before deploying publicly.
-
-## Environment variables
-
-See [`.env.example`](./.env.example) for the complete list. Do not commit `.env.local` or any provider credentials. The archive intentionally excludes local environment files.
+MusicBrainz works without Spotify credentials. Spotify features require Spotify Client Credentials.
 
 ## API routes
 
-- `GET /api/search?query=...&artist=...&track=...` — searches MusicBrainz and, when configured, Spotify with a bounded response deadline.
-- `GET /api/suggestions?track=...` — returns ranked Spotify track suggestions.
-- `GET /api/popular` — returns the current tracks from Spotify's `Top 50 - Global` playlist.
-- `GET /api/artwork?track=...&artist=...` — returns Spotify album artwork.
+All routes are same-origin JSON endpoints.
 
-All route handlers validate input, cap query length, apply per-route rate limits, use an upstream timeout, propagate client cancellation, and avoid returning provider credentials or raw upstream errors.
+### Search
 
-## Production
+```http
+GET /api/search?query=love&artist=The%20Beatles&track=Because
+```
+
+All query parameters are optional, but at least one search value is required.
+
+### Suggestions
+
+```http
+GET /api/suggestions?track=because
+```
+
+Returns Spotify track suggestions for autocomplete.
+
+### Artwork
+
+```http
+GET /api/artwork?track=Because&artist=The%20Beatles
+```
+
+Returns a Spotify album image URL when available.
+
+### Popular tracks
+
+```http
+GET /api/popular
+```
+
+Returns the current tracks used for the popular-track shortcuts.
+
+## Environment variables
+
+Copy `.env.example` to `.env.local` and configure:
+
+```env
+MUSICBRAINZ_USER_AGENT=YourApp/1.0 (https://example.com/contact)
+SPOTIFY_CLIENT_ID=
+SPOTIFY_CLIENT_SECRET=
+SPOTIFY_MARKET=US
+```
+
+`SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` are optional. `SPOTIFY_MARKET` controls the Spotify catalog market.
+
+## Run locally
 
 ```bash
-npm run lint
-npm run typecheck
+npm ci
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000).
+
+## Deploy
+
+The app can be deployed to any Node.js host that supports Next.js.
+
+```bash
+npm ci
 npm run build
 npm run start
 ```
 
-The MusicBrainz API is community-run and expects respectful request rates. The app serializes MusicBrainz requests, caps its queue, and caches identical searches, but it is still intended for interactive lookups rather than bulk scraping.
-
-The PWA service worker is registered in production builds only. Serve the app over HTTPS (or `localhost`) to enable installation; API routes remain network-only so ISRC lookups are not served from stale offline data.
-
-`next/font/google` downloads the Sora font data during the build. If your CI environment is fully offline, provide a local Sora font asset or allow the Google Fonts fetch during the build.
+Set the environment variables in the hosting provider. Do not commit `.env` or `.env.local`. Use HTTPS in production so the PWA and clipboard APIs work reliably.
