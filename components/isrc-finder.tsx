@@ -563,17 +563,18 @@ export default function IsrcFinder() {
 
   const copyIsrc = useCallback(
     async (value: string) => {
+      const clipboardValue = `isrc:${value}`;
       let copied = false;
       try {
         if (navigator.clipboard && window.isSecureContext) {
-          await navigator.clipboard.writeText(value);
+          await navigator.clipboard.writeText(clipboardValue);
           copied = true;
         } else {
           const previouslyFocused = document.activeElement instanceof HTMLElement
             ? document.activeElement
             : null;
           const textarea = document.createElement("textarea");
-          textarea.value = value;
+          textarea.value = clipboardValue;
           textarea.style.position = "fixed";
           textarea.style.opacity = "0";
           document.body.appendChild(textarea);
