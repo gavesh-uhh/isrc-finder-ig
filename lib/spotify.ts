@@ -16,7 +16,10 @@ import type {
 
 const TOKEN_ENDPOINT = "https://accounts.spotify.com/api/token";
 const SEARCH_ENDPOINT = "https://api.spotify.com/v1/search";
+const PLAYLISTS_ENDPOINT = "https://api.spotify.com/v1/playlists";
+const POPULAR_PLAYLIST_ID = "37i9dQZEVXbMDoHDwVN2tF";
 const CACHE_TTL = 10 * 60 * 1_000;
+const POPULAR_CACHE_TTL = 15 * 60 * 1_000;
 const SPOTIFY_TIMEOUT_MS = 6_000;
 
 interface SpotifyImage {
@@ -46,6 +49,34 @@ interface SpotifyTrack {
 
 interface SpotifySearchResponse {
   tracks?: { items?: SpotifyTrack[] };
+}
+
+interface SpotifyPlaylistItemsResponse {
+  items?: Array<{ track?: SpotifyTrack | null } | null>;
+}
+
+interface SpotifyBatchTracksResponse {
+  tracks?: Array<SpotifyTrack | null>;
+}
+
+interface SpotifyEmbedTrack {
+  uri?: string;
+  title?: string;
+  subtitle?: string;
+}
+
+interface SpotifyEmbedData {
+  props?: {
+    pageProps?: {
+      state?: {
+        data?: {
+          entity?: {
+            trackList?: SpotifyEmbedTrack[];
+          };
+        };
+      };
+    };
+  };
 }
 
 interface SpotifyTokenResponse {
@@ -198,6 +229,188 @@ async function requestSpotifySearch(
   return (data.tracks?.items ?? [])
     .map(normalizeTrack)
     .filter((recording): recording is RecordingResult => Boolean(recording));
+}
+
+function toPopularSuggestions(tracks: SpotifyTrack[], limit: number): TrackSuggestion[] {
+  const seen = new Set<string>();
+  const suggestions: TrackSuggestion[] = [];
+
+  for (const track of tracks) {
+    const normalized = normalizeTrack(track, 0);
+    if (!normalized || !normalized.artists[0]) {
+      continue;
+    }
+    const key = track.id || `${normalized.title}::${normalized.artists[0]}`;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    suggestions.push({
+      name: normalized.title,
+      artist: normalized.artists[0],
+      artworkUrl: normalized.artworkUrl,
+    });
+    if (suggestions.length >= limit) {
+      break;
+    }
+  }
+
+  return suggestions;
+}
+
+async function requestPlaylistTracks(
+  playlistId: string,
+  market: string,
+  limit: number,
+  token: string,
+  signal: AbortSignal,
+): Promise<SpotifyTrack[] | null> {
+  const url = new URL(`${PLAYLISTS_ENDPOINT}/${encodeURIComponent(playlistId)}/tracks`);
+  url.searchParams.set("limit", String(limit));
+  url.searchParams.set("market", market);
+
+  const response = await fetch(url, {
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    signal,
+    cache: "no-store",
+  });
+  if (response.status === 404) {
+    return null;
+  }
+  if (response.status === 401) {
+    tokenCache = null;
+  }
+
+  const data = await readJson<SpotifyPlaylistItemsResponse>(response, "Spotify");
+  return (data.items ?? [])
+    .map((item) => item?.track)
+    .filter((track): track is SpotifyTrack => Boolean(track));
+}
+
+async function requestEmbedPlaylistTracks(
+  playlistId: string,
+  signal: AbortSignal,
+): Promise<SpotifyTrack[]> {
+  const response = await fetch(
+    `https://open.spotify.com/embed/playlist/${encodeURIComponent(playlistId)}`,
+    {
+      headers: { Accept: "text/html" },
+      signal,
+      cache: "no-store",
+    },
+  );
+  if (!response.ok) {
+    throw new UpstreamError("Spotify", `Spotify embed returned HTTP ${response.status}`, 502);
+  }
+
+  const html = await response.text();
+  const match = html.match(/<script[^>]*id=["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i);
+  if (!match?.[1]) {
+    throw new UpstreamError("Spotify", "Spotify embed data was not found", 502);
+  }
+
+  let data: SpotifyEmbedData;
+  try {
+    data = JSON.parse(match[1]) as SpotifyEmbedData;
+  } catch {
+    throw new UpstreamError("Spotify", "Spotify embed data was invalid", 502);
+  }
+
+  return (data.props?.pageProps?.state?.data?.entity?.trackList ?? [])
+    .map((track): SpotifyTrack | null => {
+      const id = track.uri?.split(":").pop();
+      if (!id || !track.title) {
+        return null;
+      }
+      return {
+        id,
+        name: track.title,
+        artists: track.subtitle ? [{ name: track.subtitle }] : [],
+      } satisfies SpotifyTrack;
+    })
+    .filter((track): track is SpotifyTrack => Boolean(track));
+}
+
+async function requestTracksById(
+  tracks: SpotifyTrack[],
+  market: string,
+  token: string,
+  signal: AbortSignal,
+): Promise<SpotifyTrack[]> {
+  const ids = tracks.map((track) => track.id).filter((id): id is string => Boolean(id));
+  if (ids.length === 0) {
+    return [];
+  }
+
+  const url = new URL("https://api.spotify.com/v1/tracks");
+  url.searchParams.set("ids", ids.join(","));
+  url.searchParams.set("market", market);
+  const response = await fetch(url, {
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    signal,
+    cache: "no-store",
+  });
+  if (response.status === 401) {
+    tokenCache = null;
+  }
+
+  const data = await readJson<SpotifyBatchTracksResponse>(response, "Spotify");
+  return (data.tracks ?? []).filter((track): track is SpotifyTrack => Boolean(track));
+}
+
+export async function getSpotifyPopularTracks(
+  limit = 6,
+  parentSignal?: AbortSignal,
+): Promise<{ configured: boolean; tracks: TrackSuggestion[] }> {
+  if (!isSpotifyConfigured()) {
+    return { configured: false, tracks: [] };
+  }
+
+  const market = process.env.SPOTIFY_MARKET?.trim() || "US";
+  const signal = getRequestSignal(SPOTIFY_TIMEOUT_MS, parentSignal);
+  const boundedLimit = Math.min(20, Math.max(1, limit));
+
+  const tracks = await cached(
+    cacheKey("spotify:popular", [POPULAR_PLAYLIST_ID, market, boundedLimit]),
+    POPULAR_CACHE_TTL,
+    async () => {
+      const token = await requestSpotifyToken(signal);
+      let playlistTracks: SpotifyTrack[] | null = null;
+      try {
+        playlistTracks = await requestPlaylistTracks(
+          POPULAR_PLAYLIST_ID,
+          market,
+          boundedLimit,
+          token.value,
+          signal,
+        );
+      } catch (error) {
+        if (!(error instanceof UpstreamError) || error.status !== 404) {
+          throw error;
+        }
+      }
+
+      if (playlistTracks && playlistTracks.length > 0) {
+        return toPopularSuggestions(playlistTracks, boundedLimit);
+      }
+
+      const embedTracks = await requestEmbedPlaylistTracks(POPULAR_PLAYLIST_ID, signal);
+      const hydratedTracks = await requestTracksById(embedTracks, market, token.value, signal);
+      return toPopularSuggestions(
+        hydratedTracks.length > 0 ? hydratedTracks : embedTracks,
+        boundedLimit,
+      );
+    },
+    { dedupe: !parentSignal },
+  );
+
+  return { configured: true, tracks };
 }
 
 export async function getSpotifyArtwork(

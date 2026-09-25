@@ -11,7 +11,7 @@ const sora = Sora({
 });
 
 export const metadata: Metadata = {
-  title: "ISRC Finder",
+  title: "Instagram ISRC Finder",
   description: "Search quickly for recording ISRCs with MusicBrainz and Spotify.",
 };
 

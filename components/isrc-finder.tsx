@@ -26,6 +26,11 @@ interface SearchParts {
   track: string;
 }
 
+interface PopularResponse {
+  tracks: TrackSuggestion[];
+  configured: boolean;
+}
+
 type Theme = "dark" | "light";
 
 const MAX_RESULTS = 15;
@@ -181,6 +186,9 @@ export default function IsrcFinder() {
   const [artist, setArtist] = useState("");
   const [track, setTrack] = useState("");
   const [suggestions, setSuggestions] = useState<TrackSuggestion[]>([]);
+  const [popularTracks, setPopularTracks] = useState<TrackSuggestion[]>([]);
+  const [popularLoading, setPopularLoading] = useState(true);
+  const [popularConfigured, setPopularConfigured] = useState(false);
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [suggestionMessage, setSuggestionMessage] = useState("");
@@ -199,6 +207,7 @@ export default function IsrcFinder() {
   const mainFieldRef = useRef<HTMLDivElement>(null);
   const mainQueryRef = useRef<HTMLInputElement>(null);
   const searchAbortRef = useRef<AbortController | null>(null);
+  const popularAbortRef = useRef<AbortController | null>(null);
   const searchRequestIdRef = useRef(0);
   const suggestionAbortRef = useRef<AbortController | null>(null);
   const suggestionRequestIdRef = useRef(0);
@@ -257,6 +266,7 @@ export default function IsrcFinder() {
       searchRequestIdRef.current += 1;
       suggestionRequestIdRef.current += 1;
       searchAbortRef.current?.abort();
+      popularAbortRef.current?.abort();
       suggestionAbortRef.current?.abort();
       artworkAbortController.abort();
       if (suggestionTimerRef.current !== null) {
@@ -267,6 +277,47 @@ export default function IsrcFinder() {
       }
       if (copyTimerRef.current !== null) {
         window.clearTimeout(copyTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    popularAbortRef.current = controller;
+
+    void fetch("/api/popular", {
+      headers: { Accept: "application/json" },
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error("Popular tracks unavailable");
+        }
+        return (await response.json()) as PopularResponse;
+      })
+      .then((data) => {
+        if (!mountedRef.current || controller.signal.aborted) {
+          return;
+        }
+        setPopularConfigured(data.configured);
+        setPopularTracks(data.tracks);
+      })
+      .catch(() => {
+        if (mountedRef.current && !controller.signal.aborted) {
+          setPopularConfigured(false);
+          setPopularTracks([]);
+        }
+      })
+      .finally(() => {
+        if (mountedRef.current && !controller.signal.aborted) {
+          setPopularLoading(false);
+        }
+      });
+
+    return () => {
+      controller.abort();
+      if (popularAbortRef.current === controller) {
+        popularAbortRef.current = null;
       }
     };
   }, []);
@@ -541,6 +592,25 @@ export default function IsrcFinder() {
     [],
   );
 
+  const searchPopularTrack = useCallback(
+    (popularTrack: TrackSuggestion) => {
+      const nextQuery = `${popularTrack.name} ${popularTrack.artist}`;
+      if (nextQuery !== mainQuery) {
+        skipNextSuggestionRef.current = true;
+        setMainQuery(nextQuery);
+      }
+      setArtist(popularTrack.artist);
+      setTrack(popularTrack.name);
+      closeSuggestions();
+      void performSearch({
+        query: "",
+        artist: popularTrack.artist,
+        track: popularTrack.name,
+      });
+    },
+    [closeSuggestions, mainQuery, performSearch],
+  );
+
   const handleSubmit = useCallback(
     (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
@@ -755,11 +825,19 @@ export default function IsrcFinder() {
     );
   };
 
+  const showPopularTracks =
+    !isSearching &&
+    !mainQuery.trim() &&
+    !artist.trim() &&
+    !track.trim() &&
+    results.length === 0 &&
+    (popularLoading || (popularConfigured && popularTracks.length > 0));
+
   return (
     <>
       <div className="wrap">
         <header>
-          <div className="brand">ISRC Finder</div>
+          <div className="brand">Instagram ISRC Finder</div>
           <button
             className="theme-toggle"
             type="button"
@@ -778,7 +856,10 @@ export default function IsrcFinder() {
               placeholder="Start typing a track or artist…"
               aria-label="Track or artist search"
               autoComplete="off"
-              autoFocus
+              autoCapitalize="none"
+              spellCheck={false}
+              inputMode="search"
+              enterKeyHint="search"
               ref={mainQueryRef}
               value={mainQuery}
               role="combobox"
@@ -846,6 +927,47 @@ export default function IsrcFinder() {
         </form>
         <p className="hint">Pick a suggestion for instant ISRC, or press Search for full results</p>
 
+        {showPopularTracks ? (
+          <section className="popular" aria-labelledby="popular-heading">
+            <div className="popular-heading" id="popular-heading">
+              <span>Popular on Spotify</span>
+              <span>{popularLoading ? "Loading…" : "Tap to search"}</span>
+            </div>
+            {popularLoading && popularTracks.length === 0 ? (
+              <div className="popular-list" aria-label="Loading popular tracks">
+                {Array.from({ length: 4 }, (_, index) => (
+                  <div className="popular-item popular-skeleton" key={index} aria-hidden="true" />
+                ))}
+              </div>
+            ) : (
+              <div className="popular-list">
+                {popularTracks.map((popularTrack, index) => (
+                  <button
+                    className="popular-item"
+                    key={`${popularTrack.name}-${popularTrack.artist}`}
+                    type="button"
+                    aria-label={`Search ${popularTrack.name} by ${popularTrack.artist}`}
+                    style={{ animationDelay: `${index * 45}ms` }}
+                    onClick={() => searchPopularTrack(popularTrack)}
+                  >
+                    <span className="popular-cover">
+                      {popularTrack.artworkUrl ? (
+                        <img src={popularTrack.artworkUrl} alt="" loading="lazy" />
+                      ) : (
+                        <span className="popular-cover-placeholder" aria-hidden="true" />
+                      )}
+                    </span>
+                    <span className="popular-copy">
+                      <span className="popular-title">{popularTrack.name}</span>
+                      <span className="popular-artist">{popularTrack.artist}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </section>
+        ) : null}
+
         <div className="quick-fields">
           <div className="field">
             <input
@@ -854,6 +976,9 @@ export default function IsrcFinder() {
               placeholder="Artist (optional)"
               aria-label="Artist"
               autoComplete="off"
+              autoCapitalize="none"
+              spellCheck={false}
+              inputMode="search"
               value={artist}
               onChange={(event) => setArtist(event.target.value)}
             />
@@ -865,6 +990,9 @@ export default function IsrcFinder() {
               placeholder="Track (optional)"
               aria-label="Track"
               autoComplete="off"
+              autoCapitalize="none"
+              spellCheck={false}
+              inputMode="search"
               value={track}
               onChange={(event) => setTrack(event.target.value)}
             />
