@@ -159,19 +159,23 @@ function ResultCard({
       </div>
       {recording.isrcs.length > 0 ? (
         <div className="isrc-row" aria-label={`ISRCs for ${recording.title}`}>
-          {recording.isrcs.map((isrc) => (
-            <button
-              className={`isrc-chip${copiedIsrc === isrc ? " copied" : ""}`}
-              data-isrc={isrc}
-              key={isrc}
-              type="button"
-              title={`Copy ${isrc}`}
-              onClick={() => onCopy(isrc)}
-            >
-              <CopyIcon copied={copiedIsrc === isrc} />
-              {isrc}
-            </button>
-          ))}
+          {recording.isrcs.map((isrc) => {
+            const copied = copiedIsrc === isrc;
+            return (
+              <button
+                className={`isrc-chip${copied ? " copied" : ""}`}
+                data-isrc={isrc}
+                key={isrc}
+                type="button"
+                title={copied ? `Copied ${isrc}` : "Copy ISRC"}
+                aria-label={copied ? `Copied ISRC ${isrc}` : `Copy ISRC ${isrc}`}
+                onClick={() => onCopy(isrc)}
+              >
+                <CopyIcon copied={copied} />
+                {copied ? isrc : "Copy ISRC"}
+              </button>
+            );
+          })}
         </div>
       ) : (
         <div className="no-isrc">No ISRC registered for this recording</div>

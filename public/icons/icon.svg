@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title>I</title>
+  <rect width="512" height="512" fill="#000000"/>
+  <path fill="#ededed" d="M160 112h192v48h-72v192h72v48H160v-48h72V160h-72z"/>
+</svg>

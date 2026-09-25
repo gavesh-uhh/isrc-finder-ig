@@ -9,6 +9,7 @@ A compact Next.js/React app for finding recording ISRCs quickly. The interface k
 - **Spotify track suggestions** with debounced autocomplete, keyboard navigation, and Spotify album covers.
 - **Popular on Spotify** list sourced from Spotify's `Top 50 - Global` playlist, with left-aligned album artwork and a soft fade-in. It is fetched only when the app is idle.
 - **Spotify enrichment** when server-side client credentials are configured. Spotify results are conservatively merged with MusicBrainz results by shared ISRC or an unambiguous title/artist match.
+- **Installable PWA** with a generated `I` icon, web manifest, Apple touch icon, and an app-shell service worker that never caches API responses.
 - **Same-origin API routes** so browser CORS restrictions and API secrets do not affect the client.
 - **Server-side response caching**, bounded MusicBrainz queueing, request cancellation, upstream deadlines, and graceful provider fallbacks.
 - **Per-route rate limiting** for interactive public use. For a multi-region deployment, add an edge/WAF limiter in front of the app as well.
@@ -68,5 +69,7 @@ npm run start
 ```
 
 The MusicBrainz API is community-run and expects respectful request rates. The app serializes MusicBrainz requests, caps its queue, and caches identical searches, but it is still intended for interactive lookups rather than bulk scraping.
+
+The PWA service worker is registered in production builds only. Serve the app over HTTPS (or `localhost`) to enable installation; API routes remain network-only so ISRC lookups are not served from stale offline data.
 
 `next/font/google` downloads the Sora font data during the build. If your CI environment is fully offline, provide a local Sora font asset or allow the Google Fonts fetch during the build.
