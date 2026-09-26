@@ -7,6 +7,7 @@ A Next.js application for finding recording ISRCs. It searches MusicBrainz and c
 - Search by free text, artist, track, or ISRC.
 - Return matching recordings with ISRCs, artists, releases, and match information.
 - Copy an ISRC to the clipboard.
+- Save tracks locally with the star button and reopen them from the Saved tracks list.
 - Optionally provide Spotify autocomplete, album artwork, and additional catalog matches.
 - Install as a PWA on supported devices.
 

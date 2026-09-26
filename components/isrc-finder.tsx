@@ -16,6 +16,7 @@ import type {
   ArtworkResponse,
   RecordingResult,
   SearchResponse,
+  SavedTrack,
   SuggestionResponse,
   TrackSuggestion,
 } from "@/lib/types";
@@ -36,6 +37,9 @@ type Theme = "dark" | "light";
 const MAX_RESULTS = 15;
 const MAX_ARTWORK_RESULTS = 8;
 const MAX_ARTWORK_CACHE_ENTRIES = 100;
+const SAVED_TRACKS_STORAGE_KEY = "isrc-finder-saved-tracks";
+const SAVED_TRACK_PREVIEW_COUNT = 5;
+const MAX_SAVED_TRACKS = 100;
 
 function ThemeIcon({ theme }: { theme: Theme }) {
   if (theme === "dark") {
@@ -71,6 +75,23 @@ function CopyIcon({ copied = false }: { copied?: boolean }) {
   );
 }
 
+function StarIcon({ saved = false }: { saved?: boolean }) {
+  return (
+    <svg
+      className="save-icon"
+      viewBox="0 0 24 24"
+      fill={saved ? "currentColor" : "none"}
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="m12 3 2.78 5.63 6.22.9-4.5 4.38 1.06 6.19L12 17.18 6.44 20.1l1.06-6.19L3 9.53l6.22-.9L12 3Z" />
+    </svg>
+  );
+}
+
 function PlaceholderArt() {
   return (
     <div className="suggest-art placeholder">
@@ -93,18 +114,116 @@ function artworkKey(name: string, artist: string): string {
   return JSON.stringify([name.trim().toLowerCase(), artist.trim().toLowerCase()]);
 }
 
+function savedTrackKey(name: string, artist: string): string {
+  return artworkKey(name, artist);
+}
+
+function parseSavedTracks(raw: string | null): SavedTrack[] {
+  if (!raw) {
+    return [];
+  }
+
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed
+      .slice(0, MAX_SAVED_TRACKS)
+      .map((item): SavedTrack | null => {
+        if (!item || typeof item !== "object") {
+          return null;
+        }
+
+        const record = item as Record<string, unknown>;
+        if (
+          typeof record.id !== "string" ||
+          typeof record.name !== "string" ||
+          typeof record.artist !== "string"
+        ) {
+          return null;
+        }
+
+        return {
+          id: record.id,
+          name: record.name,
+          artist: record.artist,
+          artworkUrl: typeof record.artworkUrl === "string" ? record.artworkUrl : undefined,
+          isrcs: Array.isArray(record.isrcs)
+            ? record.isrcs.filter((isrc): isrc is string => typeof isrc === "string")
+            : [],
+        };
+      })
+      .filter((track): track is SavedTrack => Boolean(track));
+  } catch {
+    return [];
+  }
+}
+
+function TrackListItem({
+  track,
+  index,
+  saved,
+  onSelect,
+  onToggleSave,
+}: {
+  track: TrackSuggestion;
+  index: number;
+  saved: boolean;
+  onSelect: () => void;
+  onToggleSave: () => void;
+}) {
+  return (
+    <div className="popular-item" style={{ animationDelay: `${index * 45}ms` }}>
+      <button
+        className="popular-item-main"
+        type="button"
+        aria-label={`Search ${track.name} by ${track.artist}`}
+        onClick={onSelect}
+      >
+        <span className="popular-cover">
+          {track.artworkUrl ? (
+            <img src={track.artworkUrl} alt="" loading="lazy" />
+          ) : (
+            <span className="popular-cover-placeholder" aria-hidden="true" />
+          )}
+        </span>
+        <span className="popular-copy">
+          <span className="popular-title">{track.name}</span>
+          <span className="popular-artist">{track.artist}</span>
+        </span>
+      </button>
+      <button
+        className={`save-toggle popular-save${saved ? " saved" : ""}`}
+        type="button"
+        aria-label={saved ? `Remove ${track.name} from saved tracks` : `Save ${track.name}`}
+        aria-pressed={saved}
+        title={saved ? "Remove from saved" : "Save track"}
+        onClick={onToggleSave}
+      >
+        <StarIcon saved={saved} />
+      </button>
+    </div>
+  );
+}
+
 function ResultCard({
   recording,
   index,
   artworkUrl,
   copiedIsrc,
   onCopy,
+  saved,
+  onToggleSave,
 }: {
   recording: RecordingResult;
   index: number;
   artworkUrl?: string;
   copiedIsrc: string | null;
   onCopy: (value: string) => void;
+  saved: boolean;
+  onToggleSave: () => void;
 }) {
   const artist = recording.artists.join(", ") || "Unknown artist";
   const firstRelease = recording.releases[0];
@@ -156,6 +275,16 @@ function ResultCard({
             ) : null}
           </div>
         </div>
+        <button
+          className={`save-toggle card-save${saved ? " saved" : ""}`}
+          type="button"
+          aria-label={saved ? `Remove ${recording.title} from saved tracks` : `Save ${recording.title}`}
+          aria-pressed={saved}
+          title={saved ? "Remove from saved" : "Save track"}
+          onClick={onToggleSave}
+        >
+          <StarIcon saved={saved} />
+        </button>
       </div>
       {recording.isrcs.length > 0 ? (
         <div className="isrc-row" aria-label={`ISRCs for ${recording.title}`}>
@@ -193,6 +322,8 @@ export default function IsrcFinder() {
   const [popularTracks, setPopularTracks] = useState<TrackSuggestion[]>([]);
   const [popularLoading, setPopularLoading] = useState(true);
   const [popularConfigured, setPopularConfigured] = useState(false);
+  const [savedTracks, setSavedTracks] = useState<SavedTrack[]>([]);
+  const [savedExpanded, setSavedExpanded] = useState(false);
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [suggestionMessage, setSuggestionMessage] = useState("");
@@ -222,6 +353,7 @@ export default function IsrcFinder() {
   const mountedRef = useRef(true);
   const toastTimerRef = useRef<number | null>(null);
   const copyTimerRef = useRef<number | null>(null);
+  const savedTracksRef = useRef<SavedTrack[]>([]);
   const skipNextSuggestionRef = useRef(false);
 
   useEffect(() => {
@@ -239,6 +371,16 @@ export default function IsrcFinder() {
 
     setTheme(nextTheme);
     document.documentElement.dataset.theme = nextTheme;
+  }, []);
+
+  useEffect(() => {
+    try {
+      const stored = parseSavedTracks(window.localStorage.getItem(SAVED_TRACKS_STORAGE_KEY));
+      savedTracksRef.current = stored;
+      setSavedTracks(stored);
+    } catch {
+      // Saved tracks are optional when storage is unavailable.
+    }
   }, []);
 
   const toggleTheme = useCallback(() => {
@@ -261,6 +403,59 @@ export default function IsrcFinder() {
       setToast("");
     }, 1_400);
   }, []);
+
+  const toggleSavedTrack = useCallback(
+    (track: SavedTrack) => {
+      const current = savedTracksRef.current;
+      const existing = current.some((item) => item.id === track.id);
+      const next = existing
+        ? current.filter((item) => item.id !== track.id)
+        : [track, ...current].slice(0, MAX_SAVED_TRACKS);
+
+      savedTracksRef.current = next;
+      setSavedTracks(next);
+      try {
+        window.localStorage.setItem(SAVED_TRACKS_STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        // The in-memory list still works when storage is unavailable.
+      }
+      showToast(existing ? `Removed ${track.name}` : `Saved ${track.name}`);
+    },
+    [showToast],
+  );
+
+  const toggleRecordingSaved = useCallback(
+    (recording: RecordingResult) => {
+      const artist = recording.artists[0] || "Unknown artist";
+      toggleSavedTrack({
+        id: savedTrackKey(recording.title, artist),
+        name: recording.title,
+        artist,
+        artworkUrl: recording.artworkUrl,
+        isrcs: recording.isrcs,
+      });
+    },
+    [toggleSavedTrack],
+  );
+
+  useEffect(() => {
+    if (savedTracks.length <= SAVED_TRACK_PREVIEW_COUNT) {
+      setSavedExpanded(false);
+    }
+  }, [savedTracks.length]);
+
+  const toggleSuggestionSaved = useCallback(
+    (track: TrackSuggestion) => {
+      toggleSavedTrack({
+        id: savedTrackKey(track.name, track.artist),
+        name: track.name,
+        artist: track.artist,
+        artworkUrl: track.artworkUrl,
+        isrcs: [],
+      });
+    },
+    [toggleSavedTrack],
+  );
 
   useEffect(() => {
     mountedRef.current = true;
@@ -615,6 +810,12 @@ export default function IsrcFinder() {
     [closeSuggestions, mainQuery, performSearch],
   );
 
+  const isTrackSaved = useCallback(
+    (name: string, artist: string) =>
+      savedTracks.some((item) => item.id === savedTrackKey(name, artist)),
+    [savedTracks],
+  );
+
   const handleSubmit = useCallback(
     (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
@@ -821,6 +1022,8 @@ export default function IsrcFinder() {
               artworkUrl={result.artworkUrl}
               copiedIsrc={copiedIsrc}
               onCopy={(value) => void copyIsrc(value)}
+              saved={isTrackSaved(result.title, result.artists[0] || "Unknown artist")}
+              onToggleSave={() => toggleRecordingSaved(result)}
             />
           ))}
         </div>
@@ -946,29 +1149,53 @@ export default function IsrcFinder() {
             ) : (
               <div className="popular-list">
                 {popularTracks.map((popularTrack, index) => (
-                  <button
-                    className="popular-item"
-                    key={`${popularTrack.name}-${popularTrack.artist}`}
-                    type="button"
-                    aria-label={`Search ${popularTrack.name} by ${popularTrack.artist}`}
-                    style={{ animationDelay: `${index * 45}ms` }}
-                    onClick={() => searchPopularTrack(popularTrack)}
-                  >
-                    <span className="popular-cover">
-                      {popularTrack.artworkUrl ? (
-                        <img src={popularTrack.artworkUrl} alt="" loading="lazy" />
-                      ) : (
-                        <span className="popular-cover-placeholder" aria-hidden="true" />
-                      )}
-                    </span>
-                    <span className="popular-copy">
-                      <span className="popular-title">{popularTrack.name}</span>
-                      <span className="popular-artist">{popularTrack.artist}</span>
-                    </span>
-                  </button>
+                  <TrackListItem
+                    key={savedTrackKey(popularTrack.name, popularTrack.artist)}
+                    track={popularTrack}
+                    index={index}
+                    saved={isTrackSaved(popularTrack.name, popularTrack.artist)}
+                    onSelect={() => searchPopularTrack(popularTrack)}
+                    onToggleSave={() => toggleSuggestionSaved(popularTrack)}
+                  />
                 ))}
               </div>
             )}
+          </section>
+        ) : null}
+
+        {savedTracks.length > 0 ? (
+          <section className="saved" aria-labelledby="saved-heading">
+            <div className="popular-heading" id="saved-heading">
+              <span>Saved tracks</span>
+              <span>{savedExpanded ? "Showing all" : `${savedTracks.length} saved`}</span>
+            </div>
+            <div className="popular-list saved-list">
+              {(savedExpanded ? savedTracks : savedTracks.slice(0, SAVED_TRACK_PREVIEW_COUNT)).map(
+                (savedTrack, index) => (
+                  <TrackListItem
+                    key={savedTrack.id}
+                    track={savedTrack}
+                    index={index}
+                    saved
+                    onSelect={() => searchPopularTrack(savedTrack)}
+                    onToggleSave={() => toggleSavedTrack(savedTrack)}
+                  />
+                ),
+              )}
+            </div>
+            {savedTracks.length > SAVED_TRACK_PREVIEW_COUNT ? (
+              <button
+                className={`view-more${savedExpanded ? " expanded" : ""}`}
+                type="button"
+                aria-expanded={savedExpanded}
+                onClick={() => setSavedExpanded((current) => !current)}
+              >
+                <span>{savedExpanded ? "View Less" : "View More"}</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </button>
+            ) : null}
           </section>
         ) : null}
 

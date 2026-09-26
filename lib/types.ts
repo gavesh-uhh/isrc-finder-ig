@@ -30,6 +30,11 @@ export interface TrackSuggestion {
   artworkUrl?: string;
 }
 
+export interface SavedTrack extends TrackSuggestion {
+  id: string;
+  isrcs: string[];
+}
+
 export interface SearchResponse {
   recordings: RecordingResult[];
   providers: Record<ProviderName, ProviderStatus>;
