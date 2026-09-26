@@ -19,7 +19,9 @@ export async function GET(request: NextRequest) {
     const result = await getSpotifyPopularTracks(6, request.signal);
     return NextResponse.json<{ tracks: TrackSuggestion[]; configured: boolean }>(
       result,
-      { headers: { "Cache-Control": "private, max-age=900" } },
+      // Short TTL on purpose: the payload is a random sample of the playlist,
+      // so a long browser cache would keep serving the same six tracks.
+      { headers: { "Cache-Control": "private, max-age=60" } },
     );
   } catch {
     return NextResponse.json<ApiErrorResponse>(

@@ -20,6 +20,7 @@ const PLAYLISTS_ENDPOINT = "https://api.spotify.com/v1/playlists";
 const POPULAR_PLAYLIST_ID = "37i9dQZEVXbMDoHDwVN2tF";
 const CACHE_TTL = 10 * 60 * 1_000;
 const POPULAR_CACHE_TTL = 15 * 60 * 1_000;
+const POPULAR_POOL_SIZE = 50;
 const SPOTIFY_TIMEOUT_MS = 6_000;
 
 interface SpotifyImage {
@@ -364,6 +365,25 @@ async function requestTracksById(
   return (data.tracks ?? []).filter((track): track is SpotifyTrack => Boolean(track));
 }
 
+/**
+ * Fisher-Yates shuffle that returns the first `count` items. The caller
+ * deliberately samples from a cached pool so every request surfaces a
+ * different mix of the playlist instead of the same leading tracks.
+ */
+function sampleRandom<T>(items: readonly T[], count: number): T[] {
+  const pool = items.slice();
+  const take = Math.min(pool.length, Math.max(0, count));
+
+  for (let index = 0; index < take; index += 1) {
+    const swapWith = index + Math.floor(Math.random() * (pool.length - index));
+    const current = pool[index];
+    pool[index] = pool[swapWith];
+    pool[swapWith] = current;
+  }
+
+  return pool.slice(0, take);
+}
+
 export async function getSpotifyPopularTracks(
   limit = 6,
   parentSignal?: AbortSignal,
@@ -375,9 +395,10 @@ export async function getSpotifyPopularTracks(
   const market = process.env.SPOTIFY_MARKET?.trim() || "US";
   const signal = getRequestSignal(SPOTIFY_TIMEOUT_MS, parentSignal);
   const boundedLimit = Math.min(20, Math.max(1, limit));
+  const poolSize = Math.max(boundedLimit, POPULAR_POOL_SIZE);
 
-  const tracks = await cached(
-    cacheKey("spotify:popular", [POPULAR_PLAYLIST_ID, market, boundedLimit]),
+  const pool = await cached(
+    cacheKey("spotify:popular-pool", [POPULAR_PLAYLIST_ID, market, poolSize]),
     POPULAR_CACHE_TTL,
     async () => {
       const token = await requestSpotifyToken(signal);
@@ -386,7 +407,7 @@ export async function getSpotifyPopularTracks(
         playlistTracks = await requestPlaylistTracks(
           POPULAR_PLAYLIST_ID,
           market,
-          boundedLimit,
+          poolSize,
           token.value,
           signal,
         );
@@ -397,20 +418,20 @@ export async function getSpotifyPopularTracks(
       }
 
       if (playlistTracks && playlistTracks.length > 0) {
-        return toPopularSuggestions(playlistTracks, boundedLimit);
+        return toPopularSuggestions(playlistTracks, poolSize);
       }
 
       const embedTracks = await requestEmbedPlaylistTracks(POPULAR_PLAYLIST_ID, signal);
       const hydratedTracks = await requestTracksById(embedTracks, market, token.value, signal);
       return toPopularSuggestions(
         hydratedTracks.length > 0 ? hydratedTracks : embedTracks,
-        boundedLimit,
+        poolSize,
       );
     },
     { dedupe: !parentSignal },
   );
 
-  return { configured: true, tracks };
+  return { configured: true, tracks: sampleRandom(pool, boundedLimit) };
 }
 
 export async function getSpotifyArtwork(

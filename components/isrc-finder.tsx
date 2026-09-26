@@ -75,6 +75,44 @@ function CopyIcon({ copied = false }: { copied?: boolean }) {
   );
 }
 
+function CoffeeIcon() {
+  return (
+    <svg className="pill-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 9h13v6a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V9Z" />
+      <path d="M17 10.5h1.5a2.5 2.5 0 0 1 0 5H17" />
+      <path d="M8 2.5v2.5M12 2.5v2.5" />
+    </svg>
+  );
+}
+
+function GlobeIcon() {
+  return (
+    <svg className="pill-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M3 12h18" />
+      <path d="M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18Z" />
+    </svg>
+  );
+}
+
+function InstagramIcon() {
+  return (
+    <svg className="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="2.6" y="2.6" width="18.8" height="18.8" rx="5.2" />
+      <circle cx="12" cy="12" r="4.2" />
+      <circle cx="17.4" cy="6.6" r="1.15" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg className="clear-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M18 6 6 18M6 6l12 12" />
+    </svg>
+  );
+}
+
 function StarIcon({ saved = false }: { saved?: boolean }) {
   return (
     <svg
@@ -87,7 +125,7 @@ function StarIcon({ saved = false }: { saved?: boolean }) {
       strokeLinejoin="round"
       aria-hidden="true"
     >
-      <path d="m12 3 2.78 5.63 6.22.9-4.5 4.38 1.06 6.19L12 17.18 6.44 20.1l1.06-6.19L3 9.53l6.22-.9L12 3Z" />
+      <path d="M12 3.86 14.23 9.79l6.33.29-4.95 3.95L17.29 20.14 12 16.66l-5.29 3.48 1.68-6.11L3.44 10.08l6.33-.29Z" />
     </svg>
   );
 }
@@ -725,6 +763,26 @@ export default function IsrcFinder() {
     setActiveIndex(-1);
   }, []);
 
+  const handleClearAll = useCallback(() => {
+    searchAbortRef.current?.abort();
+    searchAbortRef.current = null;
+    searchRequestIdRef.current += 1;
+    closeSuggestions();
+
+    setMainQuery("");
+    setArtist("");
+    setTrack("");
+    setResults([]);
+    setHasSearched(false);
+    setIsSearching(false);
+    setError("");
+    setNotice("");
+    setCopiedIsrc(null);
+    setHiddenExpanded(false);
+
+    mainQueryRef.current?.focus();
+  }, [closeSuggestions]);
+
   const performSearch = useCallback(
     async (parts: SearchParts, presetArtwork?: string) => {
       searchAbortRef.current?.abort();
@@ -1040,11 +1098,18 @@ export default function IsrcFinder() {
     results.length === 0 &&
     (popularLoading || (popularConfigured && popularTracks.length > 0));
 
+  const canClear =
+    results.length > 0 || hasSearched || Boolean(mainQuery || artist || track || error);
+  const hasTrailingControl = canClear || suggestionsLoading;
+
   return (
     <>
       <div className="wrap">
         <header>
-          <div className="brand">Instagram ISRC Finder</div>
+          <div className="brand">
+            <InstagramIcon />
+            <span className="sr-only">Instagram </span>ISRC Finder
+          </div>
           <button
             className="theme-toggle"
             type="button"
@@ -1055,8 +1120,29 @@ export default function IsrcFinder() {
           </button>
         </header>
 
+        <div className="links">
+          <a
+            className="pill-link"
+            href="https://buymeacoffee.com/gaveshsaparamadu"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <CoffeeIcon />
+            <span>Buy me a coffee</span>
+          </a>
+          <a
+            className="pill-link"
+            href="https://www.gavesh.lol"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <GlobeIcon />
+            <span>gavesh.lol</span>
+          </a>
+        </div>
+
         <form id="searchForm" autoComplete="off" onSubmit={handleSubmit}>
-          <div className="field main-field" ref={mainFieldRef}>
+          <div className="field main-field" ref={mainFieldRef} data-trailing={hasTrailingControl ? "true" : undefined}>
             <input
               type="text"
               id="mainQuery"
@@ -1078,8 +1164,19 @@ export default function IsrcFinder() {
               onChange={(event) => setMainQuery(event.target.value)}
               onKeyDown={handleMainKeyDown}
             />
-            <div className={`suggest-loading${suggestionsLoading ? " show" : ""}`} aria-hidden="true">
-              <span className="spinner suggest-spinner" />
+            <div className="field-trailing">
+              {suggestionsLoading ? <span className="spinner suggest-spinner" aria-hidden="true" /> : null}
+              {canClear ? (
+                <button
+                  className="clear-btn"
+                  type="button"
+                  aria-label="Clear search and results"
+                  title="Clear search and results"
+                  onClick={handleClearAll}
+                >
+                  <CloseIcon />
+                </button>
+              ) : null}
             </div>
             <div
               className={`suggest-panel${suggestionsOpen ? " open" : ""}`}
@@ -1132,7 +1229,6 @@ export default function IsrcFinder() {
             Search
           </button>
         </form>
-        <p className="hint">Pick a suggestion for instant ISRC, or press Search for full results</p>
 
         {showPopularTracks ? (
           <section className="popular" aria-labelledby="popular-heading">
