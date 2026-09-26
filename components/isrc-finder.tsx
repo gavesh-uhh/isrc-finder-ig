@@ -11,6 +11,16 @@ import {
   type KeyboardEvent,
 } from "react";
 
+import {
+  CloseIcon,
+  CoffeeIcon,
+  CopyIcon,
+  GlobeIcon,
+  InstagramIcon,
+  StarIcon,
+  ThemeIcon,
+} from "@/components/icons";
+import TrackRow from "@/components/track-row";
 import type {
   ApiErrorResponse,
   ArtworkResponse,
@@ -40,95 +50,6 @@ const MAX_ARTWORK_CACHE_ENTRIES = 100;
 const SAVED_TRACKS_STORAGE_KEY = "isrc-finder-saved-tracks";
 const SAVED_TRACK_PREVIEW_COUNT = 5;
 const MAX_SAVED_TRACKS = 100;
-
-function ThemeIcon({ theme }: { theme: Theme }) {
-  if (theme === "dark") {
-    return (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <circle cx="12" cy="12" r="4" />
-        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
-      </svg>
-    );
-  }
-
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-    </svg>
-  );
-}
-
-function CopyIcon({ copied = false }: { copied?: boolean }) {
-  if (copied) {
-    return (
-      <svg className="copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M20 6L9 17l-5-5" />
-      </svg>
-    );
-  }
-
-  return (
-    <svg className="copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="9" y="9" width="13" height="13" rx="2" />
-      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-    </svg>
-  );
-}
-
-function CoffeeIcon() {
-  return (
-    <svg className="pill-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M4 9h13v6a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V9Z" />
-      <path d="M17 10.5h1.5a2.5 2.5 0 0 1 0 5H17" />
-      <path d="M8 2.5v2.5M12 2.5v2.5" />
-    </svg>
-  );
-}
-
-function GlobeIcon() {
-  return (
-    <svg className="pill-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="12" cy="12" r="9" />
-      <path d="M3 12h18" />
-      <path d="M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18Z" />
-    </svg>
-  );
-}
-
-function InstagramIcon() {
-  return (
-    <svg className="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="2.6" y="2.6" width="18.8" height="18.8" rx="5.2" />
-      <circle cx="12" cy="12" r="4.2" />
-      <circle cx="17.4" cy="6.6" r="1.15" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
-
-function CloseIcon() {
-  return (
-    <svg className="clear-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M18 6 6 18M6 6l12 12" />
-    </svg>
-  );
-}
-
-function StarIcon({ saved = false }: { saved?: boolean }) {
-  return (
-    <svg
-      className="save-icon"
-      viewBox="0 0 24 24"
-      fill={saved ? "currentColor" : "none"}
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M12 3.86 14.23 9.79l6.33.29-4.95 3.95L17.29 20.14 12 16.66l-5.29 3.48 1.68-6.11L3.44 10.08l6.33-.29Z" />
-    </svg>
-  );
-}
 
 function PlaceholderArt() {
   return (
@@ -199,53 +120,6 @@ function parseSavedTracks(raw: string | null): SavedTrack[] {
   }
 }
 
-function TrackListItem({
-  track,
-  index,
-  saved,
-  onSelect,
-  onToggleSave,
-}: {
-  track: TrackSuggestion;
-  index: number;
-  saved: boolean;
-  onSelect: () => void;
-  onToggleSave: () => void;
-}) {
-  return (
-    <div className="popular-item" style={{ animationDelay: `${index * 45}ms` }}>
-      <button
-        className="popular-item-main"
-        type="button"
-        aria-label={`Search ${track.name} by ${track.artist}`}
-        onClick={onSelect}
-      >
-        <span className="popular-cover">
-          {track.artworkUrl ? (
-            <img src={track.artworkUrl} alt="" loading="lazy" />
-          ) : (
-            <span className="popular-cover-placeholder" aria-hidden="true" />
-          )}
-        </span>
-        <span className="popular-copy">
-          <span className="popular-title">{track.name}</span>
-          <span className="popular-artist">{track.artist}</span>
-        </span>
-      </button>
-      <button
-        className={`save-toggle popular-save${saved ? " saved" : ""}`}
-        type="button"
-        aria-label={saved ? `Remove ${track.name} from saved tracks` : `Save ${track.name}`}
-        aria-pressed={saved}
-        title={saved ? "Remove from saved" : "Save track"}
-        onClick={onToggleSave}
-      >
-        <StarIcon saved={saved} />
-      </button>
-    </div>
-  );
-}
-
 function ResultCard({
   recording,
   index,
@@ -314,7 +188,7 @@ function ResultCard({
           </div>
         </div>
         <button
-          className={`save-toggle card-save${saved ? " saved" : ""}`}
+          className="save-toggle card-save"
           type="button"
           aria-label={saved ? `Remove ${recording.title} from saved tracks` : `Save ${recording.title}`}
           aria-pressed={saved}
@@ -1237,15 +1111,15 @@ export default function IsrcFinder() {
               <span>{popularLoading ? "Loading…" : "Tap to search"}</span>
             </div>
             {popularLoading && popularTracks.length === 0 ? (
-              <div className="popular-list" aria-label="Loading popular tracks">
+              <ul className="popular-list" aria-label="Loading popular tracks">
                 {Array.from({ length: 4 }, (_, index) => (
-                  <div className="popular-item popular-skeleton" key={index} aria-hidden="true" />
+                  <li className="track-row track-row--skeleton" key={index} aria-hidden="true" />
                 ))}
-              </div>
+              </ul>
             ) : (
-              <div className="popular-list">
+              <ul className="popular-list">
                 {popularTracks.map((popularTrack, index) => (
-                  <TrackListItem
+                  <TrackRow
                     key={savedTrackKey(popularTrack.name, popularTrack.artist)}
                     track={popularTrack}
                     index={index}
@@ -1254,21 +1128,21 @@ export default function IsrcFinder() {
                     onToggleSave={() => toggleSuggestionSaved(popularTrack)}
                   />
                 ))}
-              </div>
+              </ul>
             )}
           </section>
         ) : null}
 
         {savedTracks.length > 0 ? (
-          <section className="saved" aria-labelledby="saved-heading">
+          <section className="saved-tracks" aria-labelledby="saved-heading">
             <div className="popular-heading" id="saved-heading">
               <span>Saved tracks</span>
               <span>{savedExpanded ? "Showing all" : `${savedTracks.length} saved`}</span>
             </div>
-            <div className="popular-list saved-list">
+            <ul className="popular-list saved-list">
               {(savedExpanded ? savedTracks : savedTracks.slice(0, SAVED_TRACK_PREVIEW_COUNT)).map(
                 (savedTrack, index) => (
-                  <TrackListItem
+                  <TrackRow
                     key={savedTrack.id}
                     track={savedTrack}
                     index={index}
@@ -1278,7 +1152,7 @@ export default function IsrcFinder() {
                   />
                 ),
               )}
-            </div>
+            </ul>
             {savedTracks.length > SAVED_TRACK_PREVIEW_COUNT ? (
               <button
                 className={`view-more${savedExpanded ? " expanded" : ""}`}

@@ -12,7 +12,6 @@
   --success-bg: rgba(70, 167, 88, 0.12);
   --error: #e5484d;
   --radius: 6px;
-  --space-2: 0.5rem;
   --save-size: 1.875rem;
   --font: var(--font-sora), "Sora", ui-sans-serif, system-ui, -apple-system, sans-serif;
   padding-top: env(safe-area-inset-top, 0px);
@@ -532,48 +531,8 @@ button[type="submit"]:focus-visible {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
-}
-
-.popular-item {
-  display: flex;
-  align-items: center;
-  min-width: 0;
-  min-height: 4rem;
-  padding-right: var(--space-2);
-  overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
-  color: var(--text);
-  transition: border-color 0.15s, background 0.15s;
-  animation: popular-fade-in 0.35s ease both;
-}
-
-.popular-item:hover,
-.popular-item:focus-within {
-  border-color: var(--border-hover);
-  background: var(--surface-2);
-}
-
-.popular-item-main {
-  display: flex;
-  align-items: stretch;
-  align-self: stretch;
-  min-width: 0;
-  flex: 1;
-  margin: 0 var(--space-2) 0 0;
+  margin: 0;
   padding: 0;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.popular-item-main:focus-visible {
-  outline: 2px solid var(--text);
-  outline-offset: -2px;
 }
 
 /*
@@ -589,12 +548,12 @@ button[type="submit"]:focus-visible {
   block-size: var(--save-size);
   flex: 0 0 auto;
   padding: 0;
-  border: 1px solid var(--border);
+  border: 0;
   border-radius: 5px;
-  background: var(--surface);
+  background: transparent;
   color: var(--text-dimmer);
   cursor: pointer;
-  transition: color 0.15s, background 0.15s, border-color 0.15s;
+  transition: color 0.15s, background 0.15s;
 }
 
 .save-toggle:hover {
@@ -607,7 +566,9 @@ button[type="submit"]:focus-visible {
   outline-offset: 2px;
 }
 
-.save-toggle.saved {
+/* Selected state, driven by aria-pressed alone so the track row and the result
+   card share one rule and no class name can collide with a layout rule. */
+.save-toggle[aria-pressed="true"] {
   color: var(--text);
 }
 
@@ -622,16 +583,64 @@ button[type="submit"]:focus-visible {
 /* A solid fill reads heavier and larger than the outline at the same path
    size, so it is scaled down about its centre. No translate: the glyph must
    stay dead-centre in the button or the whole control reads as off-centre. */
-.save-toggle.saved .save-icon {
+.save-toggle[aria-pressed="true"] .save-icon {
   transform: scale(0.88);
 }
 
-/* Track rows: same as result cards — star at the top-right, not centred. */
-.popular-save {
-  align-self: flex-start;
+/*
+ * Track row. Shared by the popular grid and the saved list, so every visual
+ * decision lives here and neither section can drift from the other.
+ *
+ * The row is a flex line holding two sibling controls: a select button that
+ * fills the remaining width, and the star. Cross-axis centring on the row is
+ * what centres the star; the cover and the select button opt back into
+ * `align-self: stretch` so the artwork still bleeds to the full row height.
+ */
+.track-row {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  min-height: 4rem;
+  margin: 0;
+  padding-right: 10px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  list-style: none;
+  transition: border-color 0.15s, background 0.15s;
+  animation: track-row-fade-in 0.35s ease both;
 }
 
-.popular-cover {
+.track-row:hover,
+.track-row:focus-within {
+  border-color: var(--border-hover);
+  background: var(--surface-2);
+}
+
+.track-row__select {
+  display: flex;
+  align-items: stretch;
+  align-self: stretch;
+  min-width: 0;
+  flex: 1;
+  margin: 0 8px 0 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.track-row__select:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: -2px;
+}
+
+.track-row__cover {
   position: relative;
   width: 3.625rem;
   min-height: 4rem;
@@ -641,7 +650,7 @@ button[type="submit"]:focus-visible {
   background: var(--surface-2);
 }
 
-.popular-cover::after {
+.track-row__cover::after {
   position: absolute;
   inset: 0;
   background: linear-gradient(
@@ -660,14 +669,14 @@ button[type="submit"]:focus-visible {
   pointer-events: none;
 }
 
-.popular-cover img {
+.track-row__cover img {
   display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.popular-cover-placeholder {
+.track-row__cover-fallback {
   display: block;
   width: 100%;
   height: 100%;
@@ -676,7 +685,7 @@ button[type="submit"]:focus-visible {
     var(--surface-2);
 }
 
-.popular-copy {
+.track-row__text {
   display: flex;
   min-width: 0;
   flex: 1;
@@ -685,31 +694,31 @@ button[type="submit"]:focus-visible {
   padding: 8px 0 8px 10px;
 }
 
-.popular-title,
-.popular-artist {
+.track-row__title,
+.track-row__artist {
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.popular-title {
+.track-row__title {
   font-size: 11.5px;
   font-weight: 600;
 }
 
-.popular-artist {
+.track-row__artist {
   margin-top: 2px;
   color: var(--text-dim);
   font-size: 10.5px;
 }
 
-.popular-skeleton {
-  animation: popular-skeleton-pulse 1.2s ease-in-out infinite;
+.track-row--skeleton {
+  animation: track-row-skeleton-pulse 1.2s ease-in-out infinite;
   pointer-events: none;
 }
 
-@keyframes popular-fade-in {
+@keyframes track-row-fade-in {
   from {
     opacity: 0;
     transform: translateY(3px);
@@ -720,7 +729,7 @@ button[type="submit"]:focus-visible {
   }
 }
 
-@keyframes popular-skeleton-pulse {
+@keyframes track-row-skeleton-pulse {
   0%,
   100% {
     opacity: 0.45;
@@ -730,7 +739,10 @@ button[type="submit"]:focus-visible {
   }
 }
 
-.saved {
+/* Named for the section, not just "saved": a bare `.saved` also matches the
+   star button's selected-state class, which silently inherited this margin and
+   pulled the button 10px above centre. The star's state is aria-pressed only. */
+.saved-tracks {
   margin: -4px 0 16px;
 }
 
@@ -1019,7 +1031,7 @@ button[type="submit"]:focus-visible {
   }
 
   .popular,
-  .saved {
+  .saved-tracks {
     margin-bottom: 14px;
   }
 
@@ -1027,21 +1039,18 @@ button[type="submit"]:focus-visible {
     gap: 5px;
   }
 
-  .popular-item {
+  .track-row {
+    --save-size: 1.75rem;
     min-height: 3.75rem;
   }
 
-  .popular-save {
-    --save-size: 1.75rem;
-  }
-
-  .popular-cover {
+  .track-row__cover {
     width: 3.25rem;
     min-height: 3.75rem;
     flex-basis: 3.25rem;
   }
 
-  .popular-copy {
+  .track-row__text {
     padding-left: 8px;
   }
 
@@ -1143,16 +1152,16 @@ button[type="submit"]:focus-visible {
     display: none;
   }
 
-  .popular-cover {
+  .track-row__cover {
     width: 3rem;
     flex-basis: 3rem;
   }
 
-  .popular-copy {
+  .track-row__text {
     padding-left: 7px;
   }
 
-  .popular-title {
+  .track-row__title {
     font-size: 11px;
   }
 
