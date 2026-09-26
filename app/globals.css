@@ -466,7 +466,7 @@ button[type="submit"]:focus-visible {
   align-items: stretch;
   min-width: 0;
   flex: 1;
-  padding: 0 10px 0 0;
+  padding: 0 48px 0 0;
   border: 0;
   background: transparent;
   color: inherit;
@@ -508,6 +508,22 @@ button[type="submit"]:focus-visible {
 
 .save-toggle.saved {
   color: var(--text);
+}
+
+.popular-save {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 30px;
+  height: 30px;
+  min-height: 30px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface);
+}
+
+.popular-save:hover {
+  background: var(--surface-2);
 }
 
 .save-icon {
@@ -914,13 +930,15 @@ button[type="submit"]:focus-visible {
   }
 
   .popular-item-main {
-    padding-right: 8px;
+    padding-right: 44px;
   }
 
   .popular-save {
-    width: 30px;
-    min-height: 60px;
-    flex-basis: 30px;
+    top: 6px;
+    right: 6px;
+    width: 28px;
+    height: 28px;
+    min-height: 28px;
   }
 
   .popular-cover {
@@ -1038,7 +1056,7 @@ button[type="submit"]:focus-visible {
   }
 
   .popular-item-main {
-    padding-right: 7px;
+    padding-right: 42px;
   }
 
   .popular-cover {
