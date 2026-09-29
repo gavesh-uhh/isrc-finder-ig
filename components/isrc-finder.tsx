@@ -16,7 +16,7 @@ import {
   CoffeeIcon,
   CopyIcon,
   GlobeIcon,
-  InstagramIcon,
+  SearchIcon,
   StarIcon,
   ThemeIcon,
 } from "@/components/icons";
@@ -50,6 +50,8 @@ const MAX_ARTWORK_CACHE_ENTRIES = 100;
 const SAVED_TRACKS_STORAGE_KEY = "isrc-finder-saved-tracks";
 const SAVED_TRACK_PREVIEW_COUNT = 5;
 const MAX_SAVED_TRACKS = 100;
+/** Must match the number of tracks returned by /api/popular. */
+const POPULAR_TRACKS_COUNT = 6;
 
 function PlaceholderArt() {
   return (
@@ -980,10 +982,7 @@ export default function IsrcFinder() {
     <>
       <div className="wrap">
         <header>
-          <div className="brand">
-            <InstagramIcon />
-            <span className="sr-only">Instagram </span>ISRC Finder
-          </div>
+          <div className="brand">ISRC Finder</div>
           <button
             className="theme-toggle"
             type="button"
@@ -1099,8 +1098,15 @@ export default function IsrcFinder() {
               )}
             </div>
           </div>
-          <button type="submit" id="submitBtn" disabled={isSearching}>
-            Search
+          <button
+            type="submit"
+            id="submitBtn"
+            className="icon-btn"
+            disabled={isSearching}
+            aria-label="Search"
+            title="Search"
+          >
+            <SearchIcon />
           </button>
         </form>
 
@@ -1112,7 +1118,7 @@ export default function IsrcFinder() {
             </div>
             {popularLoading && popularTracks.length === 0 ? (
               <ul className="popular-list" aria-label="Loading popular tracks">
-                {Array.from({ length: 4 }, (_, index) => (
+                {Array.from({ length: POPULAR_TRACKS_COUNT }, (_, index) => (
                   <li className="track-row track-row--skeleton" key={index} aria-hidden="true" />
                 ))}
               </ul>

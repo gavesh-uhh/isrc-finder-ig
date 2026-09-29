@@ -14,9 +14,9 @@ const sora = Sora({
 });
 
 export const metadata: Metadata = {
-  title: "Instagram ISRC Finder",
+  title: "ISRC Finder",
   description: "Search quickly for recording ISRCs with MusicBrainz and Spotify.",
-  applicationName: "Instagram ISRC Finder",
+  applicationName: "ISRC Finder",
   manifest: "/manifest.webmanifest",
   icons: {
     icon: [

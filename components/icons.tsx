@@ -52,20 +52,19 @@ export function GlobeIcon() {
   );
 }
 
-export function InstagramIcon() {
-  return (
-    <svg className="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="2.6" y="2.6" width="18.8" height="18.8" rx="5.2" />
-      <circle cx="12" cy="12" r="4.2" />
-      <circle cx="17.4" cy="6.6" r="1.15" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
-
 export function CloseIcon() {
   return (
     <svg className="clear-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M18 6 6 18M6 6l12 12" />
+    </svg>
+  );
+}
+
+export function SearchIcon() {
+  return (
+    <svg className="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" />
     </svg>
   );
 }

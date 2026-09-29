@@ -143,22 +143,9 @@ header {
 }
 
 .brand {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
   font-size: 13px;
   font-weight: 600;
   letter-spacing: -0.01em;
-}
-
-.brand svg {
-  flex-shrink: 0;
-}
-
-.brand-icon {
-  width: 1.05rem;
-  height: 1.05rem;
-  color: var(--text);
 }
 
 .sr-only {
@@ -201,12 +188,59 @@ form {
   display: flex;
   gap: 8px;
   margin-bottom: 6px;
+  align-items: center;
 }
 
 .field {
   flex: 1;
   position: relative;
   min-width: 0;
+}
+
+.main-field {
+  display: flex;
+}
+
+.icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+
+.icon-btn:hover:not(:disabled) {
+  border-color: var(--border-hover);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.icon-btn:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 1px;
+}
+
+.icon-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.search-icon {
+  flex: 0 0 auto;
+  width: 1.2rem;
+  height: 1.2rem;
+  min-width: 1.2rem;
+  min-height: 1.2rem;
 }
 
 input[type="text"] {
@@ -220,6 +254,11 @@ input[type="text"] {
   border-radius: var(--radius);
   outline: none;
   transition: border-color 0.15s, background 0.15s;
+}
+
+.main-field input[type="text"] {
+  flex: 1;
+  min-height: 42px;
 }
 
 input[type="text"]::placeholder {
@@ -478,11 +517,16 @@ button[type="submit"] {
   font-family: var(--font);
   font-size: 14px;
   font-weight: 600;
-  padding: 10px 16px;
-  border-radius: var(--radius);
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0;
+  border-radius: 50%;
   cursor: pointer;
   transition: opacity 0.15s;
   white-space: nowrap;
+  flex: 0 0 auto;
 }
 
 button[type="submit"]:hover {
@@ -1024,10 +1068,19 @@ button[type="submit"]:focus-visible {
     padding: 10px 12px;
   }
 
+  .icon-btn,
   button[type="submit"] {
-    min-height: 42px;
-    padding: 10px 13px;
-    font-size: 13px;
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    min-height: 40px;
+  }
+
+  .search-icon {
+    width: 1.3rem;
+    height: 1.3rem;
+    min-width: 1.3rem;
+    min-height: 1.3rem;
   }
 
   .popular,
