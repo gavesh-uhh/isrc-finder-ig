@@ -52,6 +52,16 @@ export function GlobeIcon() {
   );
 }
 
+export function InstallIcon() {
+  return (
+    <svg className="pill-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 3v10" />
+      <path d="m8 10 4 4 4-4" />
+      <path d="M4 17v1.5A2.5 2.5 0 0 0 6.5 21h11a2.5 2.5 0 0 0 2.5-2.5V17" />
+    </svg>
+  );
+}
+
 export function CloseIcon() {
   return (
     <svg className="clear-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

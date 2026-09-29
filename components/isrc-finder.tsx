@@ -21,6 +21,7 @@ import {
   ThemeIcon,
 } from "@/components/icons";
 import TrackRow from "@/components/track-row";
+import InstallButton from "@/components/install-button";
 import type {
   ApiErrorResponse,
   ArtworkResponse,
@@ -1088,6 +1089,8 @@ export default function IsrcFinder() {
     results.length === 0 &&
     (popularLoading || (popularConfigured && popularTracks.length > 0));
 
+  const showSavedTracks = savedTracks.length > 0 && results.length === 0 && !isSearching;
+
   const canClear =
     results.length > 0 || hasSearched || Boolean(mainQuery || artist || track || error);
   const hasTrailingControl = canClear || suggestionsLoading;
@@ -1126,6 +1129,7 @@ export default function IsrcFinder() {
             <GlobeIcon />
             <span>gavesh.lol</span>
           </a>
+          <InstallButton />
         </div>
 
         <form id="searchForm" autoComplete="off" onSubmit={handleSubmit}>
@@ -1329,7 +1333,7 @@ export default function IsrcFinder() {
           </section>
         ) : null}
 
-        {savedTracks.length > 0 ? (
+        {showSavedTracks ? (
           <section className="saved-tracks" aria-labelledby="saved-heading">
             <div className="popular-heading" id="saved-heading">
               <span>Saved tracks</span>
