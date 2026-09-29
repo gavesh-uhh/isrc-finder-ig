@@ -11,10 +11,8 @@
   --success: #46a758;
   --success-bg: rgba(70, 167, 88, 0.12);
   --error: #e5484d;
+  --error-bg: rgba(229, 72, 77, 0.12);
   --radius: 6px;
-  /* Single source of truth for the search row: the input and the submit
-     button both resolve to this height, and the button is a square (width
-     == height) so the two can never drift apart. */
   --control-h: 42px;
   --save-size: 1.875rem;
   --font: var(--font-sora), "Sora", ui-sans-serif, system-ui, -apple-system, sans-serif;
@@ -97,9 +95,11 @@ button {
 }
 
 header {
+  position: relative;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
+  padding: 10px 0 14px;
   margin-bottom: 0.5rem;
 }
 
@@ -152,9 +152,13 @@ header {
 }
 
 .brand {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
   font-size: 13px;
   font-weight: 600;
   letter-spacing: -0.01em;
+  white-space: nowrap;
 }
 
 .sr-only {
@@ -215,10 +219,10 @@ form {
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  width: 40px;
-  height: 40px;
-  min-width: 40px;
-  min-height: 40px;
+  width: var(--control-h);
+  height: var(--control-h);
+  min-width: var(--control-h);
+  min-height: var(--control-h);
   padding: 0;
   border: 1px solid var(--border);
   border-radius: 50%;
@@ -267,7 +271,9 @@ input[type="text"] {
 
 .main-field input[type="text"] {
   flex: 1;
-  min-height: 42px;
+  height: var(--control-h);
+  min-height: var(--control-h);
+  padding: 0 12px;
 }
 
 input[type="text"]::placeholder {
@@ -535,15 +541,15 @@ input[type="text"]:focus-visible {
   border: 1px solid transparent;
   border-radius: 50%;
   background: transparent;
-  color: var(--text-dimmer);
+  color: var(--error);
   cursor: pointer;
   transition: color 0.15s, background 0.15s, border-color 0.15s;
 }
 
 .clear-btn:hover {
-  border-color: var(--border);
-  background: var(--surface-2);
-  color: var(--text);
+  border-color: var(--error);
+  background: var(--error-bg);
+  color: var(--error);
 }
 
 .clear-btn:focus-visible {
@@ -570,10 +576,10 @@ button[type="submit"] {
   font-family: var(--font);
   font-size: 14px;
   font-weight: 600;
-  width: 40px;
-  height: 40px;
-  min-width: 40px;
-  min-height: 40px;
+  width: var(--control-h);
+  height: var(--control-h);
+  min-width: var(--control-h);
+  min-height: var(--control-h);
   padding: 0;
   border-radius: 50%;
   cursor: pointer;
@@ -1085,15 +1091,6 @@ button[type="submit"]:focus-visible {
 
   header {
     margin-bottom: 22px;
-    position: relative;
-    justify-content: flex-end;
-  }
-
-  .brand {
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-    white-space: nowrap;
   }
 
   .theme-toggle {
@@ -1106,17 +1103,17 @@ button[type="submit"]:focus-visible {
   }
 
   input[type="text"] {
-    min-height: 42px;
+    min-height: var(--control-h);
     font-size: 16px;
     padding: 10px 12px;
   }
 
   .icon-btn,
   button[type="submit"] {
-    width: 40px;
-    height: 40px;
-    min-width: 40px;
-    min-height: 40px;
+    width: var(--control-h);
+    height: var(--control-h);
+    min-width: var(--control-h);
+    min-height: var(--control-h);
   }
 
   .search-icon {
@@ -1237,11 +1234,6 @@ button[type="submit"]:focus-visible {
 
   form {
     gap: 4px;
-  }
-
-  button[type="submit"] {
-    padding-left: 10px;
-    padding-right: 10px;
   }
 
   .suggest-hint {
