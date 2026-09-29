@@ -9,19 +9,26 @@ export default function TrackRow({
   saved,
   onSelect,
   onToggleSave,
+  selectAriaLabel,
+  selectTitle,
+  saveDisabled,
 }: {
   track: TrackSuggestion;
   index: number;
   saved: boolean;
   onSelect: () => void;
   onToggleSave: () => void;
+  selectAriaLabel?: string;
+  selectTitle?: string;
+  saveDisabled?: boolean;
 }) {
   return (
     <li className="track-row" style={{ animationDelay: `${index * 45}ms` }}>
       <button
         className="track-row__select"
         type="button"
-        aria-label={`Search ${track.name} by ${track.artist}`}
+        aria-label={selectAriaLabel ?? `Search ${track.name} by ${track.artist}`}
+        title={selectTitle}
         onClick={onSelect}
       >
         <span className="track-row__cover">
@@ -43,6 +50,8 @@ export default function TrackRow({
         aria-pressed={saved}
         title={saved ? "Remove from saved" : "Save track"}
         onClick={onToggleSave}
+        disabled={saveDisabled}
+        aria-busy={saveDisabled || undefined}
       >
         <StarIcon saved={saved} />
       </button>

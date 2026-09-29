@@ -16,11 +16,12 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const result = await getSpotifyPopularTracks(6, request.signal);
+    const rawLimit = Number.parseInt(request.nextUrl.searchParams.get("limit") ?? "", 10);
+    const limit = Number.isFinite(rawLimit) ? Math.min(20, Math.max(1, rawLimit)) : 6;
+    const result = await getSpotifyPopularTracks(limit, request.signal);
     return NextResponse.json<{ tracks: TrackSuggestion[]; configured: boolean }>(
       result,
-      // Short TTL on purpose: the payload is a random sample of the playlist,
-      // so a long browser cache would keep serving the same six tracks.
+      // Short TTL: random playlist sample, so a long cache would repeat tracks.
       { headers: { "Cache-Control": "private, max-age=60" } },
     );
   } catch {

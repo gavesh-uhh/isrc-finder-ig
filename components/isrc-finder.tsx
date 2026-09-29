@@ -50,13 +50,20 @@ const MAX_ARTWORK_CACHE_ENTRIES = 100;
 const SAVED_TRACKS_STORAGE_KEY = "isrc-finder-saved-tracks";
 const SAVED_TRACK_PREVIEW_COUNT = 5;
 const MAX_SAVED_TRACKS = 100;
-/** Must match the number of tracks returned by /api/popular. */
-const POPULAR_TRACKS_COUNT = 6;
+const POPULAR_TRACKS_COUNT = 4;
 
 function PlaceholderArt() {
   return (
     <div className="suggest-art placeholder">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        aria-hidden="true"
+      >
         <circle cx="12" cy="12" r="9" />
         <circle cx="12" cy="12" r="2.5" />
       </svg>
@@ -77,6 +84,31 @@ function artworkKey(name: string, artist: string): string {
 
 function savedTrackKey(name: string, artist: string): string {
   return artworkKey(name, artist);
+}
+
+async function writeClipboardText(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+    const previouslyFocused =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    document.body.appendChild(textarea);
+    try {
+      textarea.select();
+      return document.execCommand("copy");
+    } finally {
+      textarea.remove();
+      previouslyFocused?.focus();
+    }
+  } catch {
+    return false;
+  }
 }
 
 function parseSavedTracks(raw: string | null): SavedTrack[] {
@@ -192,7 +224,9 @@ function ResultCard({
         <button
           className="save-toggle card-save"
           type="button"
-          aria-label={saved ? `Remove ${recording.title} from saved tracks` : `Save ${recording.title}`}
+          aria-label={
+            saved ? `Remove ${recording.title} from saved tracks` : `Save ${recording.title}`
+          }
           aria-pressed={saved}
           title={saved ? "Remove from saved" : "Save track"}
           onClick={onToggleSave}
@@ -242,6 +276,7 @@ export default function IsrcFinder() {
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [suggestionMessage, setSuggestionMessage] = useState("");
   const [hiddenExpanded, setHiddenExpanded] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
@@ -252,6 +287,7 @@ export default function IsrcFinder() {
   const [copiedIsrc, setCopiedIsrc] = useState<string | null>(null);
   const [toast, setToast] = useState("");
   const [artworkUrls, setArtworkUrls] = useState<Record<string, string>>({});
+  const [pendingSaves, setPendingSaves] = useState<Record<string, boolean>>({});
 
   const mainFieldRef = useRef<HTMLDivElement>(null);
   const mainQueryRef = useRef<HTMLInputElement>(null);
@@ -352,23 +388,78 @@ export default function IsrcFinder() {
     [toggleSavedTrack],
   );
 
+  const fetchIsrcsForTrack = useCallback(
+    async (name: string, artistName: string): Promise<string[]> => {
+      try {
+        const params = new URLSearchParams({
+          artist: artistName,
+          track: name,
+          limit: "5",
+        });
+        const response = await fetch(`/api/search?${params.toString()}`, {
+          headers: { Accept: "application/json" },
+        });
+        if (!response.ok) {
+          return [];
+        }
+        const data = (await response.json()) as SearchResponse | ApiErrorResponse;
+        if (!response.ok || "error" in data) {
+          return [];
+        }
+        const withIsrc = data.recordings.find((recording) => recording.isrcs.length > 0);
+        return withIsrc?.isrcs ?? data.recordings[0]?.isrcs ?? [];
+      } catch {
+        return [];
+      }
+    },
+    [],
+  );
+
   useEffect(() => {
     if (savedTracks.length <= SAVED_TRACK_PREVIEW_COUNT) {
       setSavedExpanded(false);
     }
   }, [savedTracks.length]);
 
+  useEffect(() => {
+    if (artist.trim() || track.trim()) {
+      setMoreOpen(true);
+    }
+  }, [artist, track]);
+
   const toggleSuggestionSaved = useCallback(
-    (track: TrackSuggestion) => {
-      toggleSavedTrack({
-        id: savedTrackKey(track.name, track.artist),
-        name: track.name,
-        artist: track.artist,
-        artworkUrl: track.artworkUrl,
-        isrcs: [],
-      });
+    async (track: TrackSuggestion) => {
+      const id = savedTrackKey(track.name, track.artist);
+      const existing = savedTracksRef.current.find((item) => item.id === id);
+      if (existing) {
+        toggleSavedTrack(existing);
+        return;
+      }
+      if (pendingSaves[id]) {
+        return;
+      }
+      setPendingSaves((current) => ({ ...current, [id]: true }));
+      try {
+        const isrcs = await fetchIsrcsForTrack(track.name, track.artist);
+        toggleSavedTrack({
+          id,
+          name: track.name,
+          artist: track.artist,
+          artworkUrl: track.artworkUrl,
+          isrcs,
+        });
+        if (isrcs.length === 0) {
+          showToast(`Saved ${track.name} (no ISRC found)`);
+        }
+      } finally {
+        setPendingSaves((current) => {
+          const next = { ...current };
+          delete next[id];
+          return next;
+        });
+      }
     },
-    [toggleSavedTrack],
+    [fetchIsrcsForTrack, pendingSaves, showToast, toggleSavedTrack],
   );
 
   useEffect(() => {
@@ -398,7 +489,7 @@ export default function IsrcFinder() {
     const controller = new AbortController();
     popularAbortRef.current = controller;
 
-    void fetch("/api/popular", {
+    void fetch(`/api/popular?limit=${POPULAR_TRACKS_COUNT}`, {
       headers: { Accept: "application/json" },
       signal: controller.signal,
     })
@@ -435,57 +526,62 @@ export default function IsrcFinder() {
     };
   }, []);
 
-  const fetchArtwork = useCallback(async (name: string, artistName: string): Promise<string | null> => {
-    const key = artworkKey(name, artistName);
-    const cachedUrl = artworkCacheRef.current.get(key);
-    if (cachedUrl) {
-      return cachedUrl;
-    }
+  const fetchArtwork = useCallback(
+    async (name: string, artistName: string): Promise<string | null> => {
+      const key = artworkKey(name, artistName);
+      const cachedUrl = artworkCacheRef.current.get(key);
+      if (cachedUrl) {
+        return cachedUrl;
+      }
 
-    const existingRequest = artworkRequestsRef.current.get(key);
-    if (existingRequest) {
-      return existingRequest;
-    }
+      const existingRequest = artworkRequestsRef.current.get(key);
+      if (existingRequest) {
+        return existingRequest;
+      }
 
-    const request = fetch(
-      `/api/artwork?track=${encodeURIComponent(name)}&artist=${encodeURIComponent(artistName)}`,
-      {
-        headers: { Accept: "application/json" },
-        signal: artworkAbortRef.current.signal,
-      },
-    )
-      .then(async (response) => {
-        if (!response.ok) {
-          throw new Error("Artwork lookup failed");
-        }
-        return (await response.json()) as ArtworkResponse;
-      })
-      .then((data) => {
-        if (!data.artworkUrl) {
-          return null;
-        }
-
-        artworkCacheRef.current.set(key, data.artworkUrl);
-        while (artworkCacheRef.current.size > MAX_ARTWORK_CACHE_ENTRIES) {
-          const oldestKey = artworkCacheRef.current.keys().next().value;
-          if (!oldestKey) {
-            break;
+      const request = fetch(
+        `/api/artwork?track=${encodeURIComponent(name)}&artist=${encodeURIComponent(artistName)}`,
+        {
+          headers: { Accept: "application/json" },
+          signal: artworkAbortRef.current.signal,
+        },
+      )
+        .then(async (response) => {
+          if (!response.ok) {
+            throw new Error("Artwork lookup failed");
           }
-          artworkCacheRef.current.delete(oldestKey);
-        }
-        if (mountedRef.current) {
-          setArtworkUrls((current) => (current[key] ? current : { ...current, [key]: data.artworkUrl! }));
-        }
-        return data.artworkUrl;
-      })
-      .catch(() => null)
-      .finally(() => {
-        artworkRequestsRef.current.delete(key);
-      });
+          return (await response.json()) as ArtworkResponse;
+        })
+        .then((data) => {
+          if (!data.artworkUrl) {
+            return null;
+          }
 
-    artworkRequestsRef.current.set(key, request);
-    return request;
-  }, []);
+          artworkCacheRef.current.set(key, data.artworkUrl);
+          while (artworkCacheRef.current.size > MAX_ARTWORK_CACHE_ENTRIES) {
+            const oldestKey = artworkCacheRef.current.keys().next().value;
+            if (!oldestKey) {
+              break;
+            }
+            artworkCacheRef.current.delete(oldestKey);
+          }
+          if (mountedRef.current) {
+            setArtworkUrls((current) =>
+              current[key] ? current : { ...current, [key]: data.artworkUrl! },
+            );
+          }
+          return data.artworkUrl;
+        })
+        .catch(() => null)
+        .finally(() => {
+          artworkRequestsRef.current.delete(key);
+        });
+
+      artworkRequestsRef.current.set(key, request);
+      return request;
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!spotifyConfigured || results.length === 0) {
@@ -542,18 +638,12 @@ export default function IsrcFinder() {
       }
       setSuggestionsLoading(true);
       try {
-        const response = await fetch(
-          `/api/suggestions?track=${encodeURIComponent(term)}`,
-          {
-            headers: { Accept: "application/json" },
-            signal: controller.signal,
-          },
-        );
+        const response = await fetch(`/api/suggestions?track=${encodeURIComponent(term)}`, {
+          headers: { Accept: "application/json" },
+          signal: controller.signal,
+        });
         const data = (await response.json()) as SuggestionResponse | ApiErrorResponse;
-        if (
-          controller.signal.aborted ||
-          requestId !== suggestionRequestIdRef.current
-        ) {
+        if (controller.signal.aborted || requestId !== suggestionRequestIdRef.current) {
           return;
         }
         if (!response.ok || "error" in data) {
@@ -571,20 +661,14 @@ export default function IsrcFinder() {
         setHiddenExpanded(false);
         setActiveIndex(-1);
       } catch {
-        if (
-          !controller.signal.aborted &&
-          requestId === suggestionRequestIdRef.current
-        ) {
+        if (!controller.signal.aborted && requestId === suggestionRequestIdRef.current) {
           setSuggestions([]);
           setSuggestionsOpen(true);
           setSuggestionMessage("Live suggestions unavailable — press Search to look up directly");
           setActiveIndex(-1);
         }
       } finally {
-        if (
-          !controller.signal.aborted &&
-          requestId === suggestionRequestIdRef.current
-        ) {
+        if (!controller.signal.aborted && requestId === suggestionRequestIdRef.current) {
           setSuggestionsLoading(false);
         }
       }
@@ -659,71 +743,68 @@ export default function IsrcFinder() {
     mainQueryRef.current?.focus();
   }, [closeSuggestions]);
 
-  const performSearch = useCallback(
-    async (parts: SearchParts, presetArtwork?: string) => {
-      searchAbortRef.current?.abort();
-      const requestId = searchRequestIdRef.current + 1;
-      searchRequestIdRef.current = requestId;
-      const controller = new AbortController();
-      searchAbortRef.current = controller;
-      setIsSearching(true);
-      setHasSearched(true);
-      setError("");
-      setNotice("");
-      setCopiedIsrc(null);
+  const performSearch = useCallback(async (parts: SearchParts, presetArtwork?: string) => {
+    searchAbortRef.current?.abort();
+    const requestId = searchRequestIdRef.current + 1;
+    searchRequestIdRef.current = requestId;
+    const controller = new AbortController();
+    searchAbortRef.current = controller;
+    setIsSearching(true);
+    setHasSearched(true);
+    setError("");
+    setNotice("");
+    setCopiedIsrc(null);
 
-      const params = new URLSearchParams();
-      if (parts.query) {
-        params.set("query", parts.query);
-      }
-      if (parts.artist) {
-        params.set("artist", parts.artist);
-      }
-      if (parts.track) {
-        params.set("track", parts.track);
-      }
-      params.set("limit", String(MAX_RESULTS));
+    const params = new URLSearchParams();
+    if (parts.query) {
+      params.set("query", parts.query);
+    }
+    if (parts.artist) {
+      params.set("artist", parts.artist);
+    }
+    if (parts.track) {
+      params.set("track", parts.track);
+    }
+    params.set("limit", String(MAX_RESULTS));
 
-      try {
-        const response = await fetch(`/api/search?${params.toString()}`, {
-          headers: { Accept: "application/json" },
-          signal: controller.signal,
-        });
-        const data = (await response.json()) as SearchResponse | ApiErrorResponse;
-        if (controller.signal.aborted || requestId !== searchRequestIdRef.current) {
-          return;
-        }
-
-        if (!response.ok || "error" in data) {
-          throw new Error("error" in data ? data.error : "Search failed");
-        }
-
-        const nextResults = data.recordings.map((recording, index) =>
-          index === 0 && presetArtwork && !recording.artworkUrl
-            ? { ...recording, artworkUrl: presetArtwork }
-            : recording,
-        );
-        setResults(nextResults);
-        setNotice(data.notice ?? "");
-        setSpotifyConfigured(data.spotifyConfigured);
-      } catch (searchError) {
-        if (controller.signal.aborted || requestId !== searchRequestIdRef.current) {
-          return;
-        }
-        setResults([]);
-        setError(
-          searchError instanceof Error
-            ? searchError.message
-            : "Search failed. Wait a moment and try again.",
-        );
-      } finally {
-        if (!controller.signal.aborted && requestId === searchRequestIdRef.current) {
-          setIsSearching(false);
-        }
+    try {
+      const response = await fetch(`/api/search?${params.toString()}`, {
+        headers: { Accept: "application/json" },
+        signal: controller.signal,
+      });
+      const data = (await response.json()) as SearchResponse | ApiErrorResponse;
+      if (controller.signal.aborted || requestId !== searchRequestIdRef.current) {
+        return;
       }
-    },
-    [],
-  );
+
+      if (!response.ok || "error" in data) {
+        throw new Error("error" in data ? data.error : "Search failed");
+      }
+
+      const nextResults = data.recordings.map((recording, index) =>
+        index === 0 && presetArtwork && !recording.artworkUrl
+          ? { ...recording, artworkUrl: presetArtwork }
+          : recording,
+      );
+      setResults(nextResults);
+      setNotice(data.notice ?? "");
+      setSpotifyConfigured(data.spotifyConfigured);
+    } catch (searchError) {
+      if (controller.signal.aborted || requestId !== searchRequestIdRef.current) {
+        return;
+      }
+      setResults([]);
+      setError(
+        searchError instanceof Error
+          ? searchError.message
+          : "Search failed. Wait a moment and try again.",
+      );
+    } finally {
+      if (!controller.signal.aborted && requestId === searchRequestIdRef.current) {
+        setIsSearching(false);
+      }
+    }
+  }, []);
 
   const searchPopularTrack = useCallback(
     (popularTrack: TrackSuggestion) => {
@@ -772,32 +853,7 @@ export default function IsrcFinder() {
 
   const copyIsrc = useCallback(
     async (value: string) => {
-      const clipboardValue = `isrc:${value}`;
-      let copied = false;
-      try {
-        if (navigator.clipboard && window.isSecureContext) {
-          await navigator.clipboard.writeText(clipboardValue);
-          copied = true;
-        } else {
-          const previouslyFocused = document.activeElement instanceof HTMLElement
-            ? document.activeElement
-            : null;
-          const textarea = document.createElement("textarea");
-          textarea.value = clipboardValue;
-          textarea.style.position = "fixed";
-          textarea.style.opacity = "0";
-          document.body.appendChild(textarea);
-          try {
-            textarea.select();
-            copied = document.execCommand("copy");
-          } finally {
-            textarea.remove();
-            previouslyFocused?.focus();
-          }
-        }
-      } catch {
-        copied = false;
-      }
+      const copied = await writeClipboardText(`isrc:${value}`);
 
       if (!copied) {
         showToast("Copy failed");
@@ -814,6 +870,65 @@ export default function IsrcFinder() {
       }, 1_200);
     },
     [showToast],
+  );
+
+  const copySavedIsrcs = useCallback(
+    async (isrcs: string[]) => {
+      if (isrcs.length === 0) {
+        showToast("No ISRC saved for this track");
+        return;
+      }
+      if (isrcs.length === 1) {
+        await copyIsrc(isrcs[0]);
+        return;
+      }
+      const copied = await writeClipboardText(isrcs.map((isrc) => `isrc:${isrc}`).join("\n"));
+      if (!copied) {
+        showToast("Copy failed");
+        return;
+      }
+      showToast(`Copied ${isrcs.length} ISRCs`);
+    },
+    [copyIsrc, showToast],
+  );
+
+  const handleSavedTrackSelect = useCallback(
+    async (savedTrack: SavedTrack) => {
+      if (savedTrack.isrcs.length > 0) {
+        await copySavedIsrcs(savedTrack.isrcs);
+        return;
+      }
+      if (pendingSaves[savedTrack.id]) {
+        return;
+      }
+      setPendingSaves((current) => ({ ...current, [savedTrack.id]: true }));
+      showToast(`Looking up ISRC for ${savedTrack.name}…`);
+      try {
+        const isrcs = await fetchIsrcsForTrack(savedTrack.name, savedTrack.artist);
+        if (isrcs.length === 0) {
+          showToast("No ISRC found for this track");
+          return;
+        }
+        const next = savedTracksRef.current.map((item) =>
+          item.id === savedTrack.id ? { ...item, isrcs } : item,
+        );
+        savedTracksRef.current = next;
+        setSavedTracks(next);
+        try {
+          window.localStorage.setItem(SAVED_TRACKS_STORAGE_KEY, JSON.stringify(next));
+        } catch {
+          // Storage optional.
+        }
+        await copySavedIsrcs(isrcs);
+      } finally {
+        setPendingSaves((current) => {
+          const next = { ...current };
+          delete next[savedTrack.id];
+          return next;
+        });
+      }
+    },
+    [copySavedIsrcs, fetchIsrcsForTrack, pendingSaves, showToast],
   );
 
   const selectSuggestion = useCallback(
@@ -860,11 +975,7 @@ export default function IsrcFinder() {
       } else if (event.key === "ArrowUp") {
         event.preventDefault();
         setActiveIndex((current) => Math.max(current - 1, 0));
-      } else if (
-        event.key === "Enter" &&
-        activeIndex >= 0 &&
-        activeIndex <= lastVisibleIndex
-      ) {
+      } else if (event.key === "Enter" && activeIndex >= 0 && activeIndex <= lastVisibleIndex) {
         event.preventDefault();
         selectSuggestion(activeIndex);
       } else if (event.key === "Escape") {
@@ -923,7 +1034,8 @@ export default function IsrcFinder() {
     if (isSearching) {
       return (
         <div className="status" role="status">
-          <span className="spinner" />&nbsp;&nbsp;Searching recordings…
+          <span className="spinner" />
+          &nbsp;&nbsp;Searching recordings…
         </div>
       );
     }
@@ -942,7 +1054,9 @@ export default function IsrcFinder() {
       if (notice) {
         return <div className="status">{notice}</div>;
       }
-      return hasSearched ? <div className="status">No recordings found. Try different terms.</div> : null;
+      return hasSearched ? (
+        <div className="status">No recordings found. Try different terms.</div>
+      ) : null;
     }
 
     return (
@@ -1015,7 +1129,11 @@ export default function IsrcFinder() {
         </div>
 
         <form id="searchForm" autoComplete="off" onSubmit={handleSubmit}>
-          <div className="field main-field" ref={mainFieldRef} data-trailing={hasTrailingControl ? "true" : undefined}>
+          <div
+            className="field main-field"
+            ref={mainFieldRef}
+            data-trailing={hasTrailingControl ? "true" : undefined}
+          >
             <input
               type="text"
               id="mainQuery"
@@ -1038,7 +1156,9 @@ export default function IsrcFinder() {
               onKeyDown={handleMainKeyDown}
             />
             <div className="field-trailing">
-              {suggestionsLoading ? <span className="spinner suggest-spinner" aria-hidden="true" /> : null}
+              {suggestionsLoading ? (
+                <span className="spinner suggest-spinner" aria-hidden="true" />
+              ) : null}
               {canClear ? (
                 <button
                   className="clear-btn"
@@ -1079,8 +1199,20 @@ export default function IsrcFinder() {
                         type="button"
                         onClick={() => setHiddenExpanded((current) => !current)}
                       >
-                        <span>{hiddenExpanded ? `Hide (${suggestions.length - 1})` : `View hidden (${suggestions.length - 1})`}</span>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <span>
+                          {hiddenExpanded
+                            ? `Hide (${suggestions.length - 1})`
+                            : `View hidden (${suggestions.length - 1})`}
+                        </span>
+                        <svg
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden="true"
+                        >
                           <polyline points="6 9 12 15 18 9" />
                         </svg>
                       </button>
@@ -1090,7 +1222,9 @@ export default function IsrcFinder() {
                         role="listbox"
                         aria-label="More track suggestions"
                       >
-                        {suggestions.slice(1).map((suggestion, index) => renderSuggestion(suggestion, index + 1))}
+                        {suggestions
+                          .slice(1)
+                          .map((suggestion, index) => renderSuggestion(suggestion, index + 1))}
                       </div>
                     </>
                   ) : null}
@@ -1110,6 +1244,59 @@ export default function IsrcFinder() {
           </button>
         </form>
 
+        <button
+          className={`more-toggle${moreOpen ? " expanded" : ""}`}
+          type="button"
+          aria-expanded={moreOpen}
+          aria-controls="more-fields"
+          onClick={() => setMoreOpen((current) => !current)}
+        >
+          <span>{moreOpen ? "Less" : "More"}</span>
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </button>
+        <div className={`more-fields${moreOpen ? " open" : ""}`} id="more-fields">
+          <div className="quick-fields">
+            <div className="field">
+              <input
+                type="text"
+                id="artistField"
+                placeholder="Artist (optional)"
+                aria-label="Artist"
+                autoComplete="off"
+                autoCapitalize="none"
+                spellCheck={false}
+                inputMode="search"
+                value={artist}
+                onChange={(event) => setArtist(event.target.value)}
+              />
+            </div>
+            <div className="field">
+              <input
+                type="text"
+                id="trackField"
+                placeholder="Track (optional)"
+                aria-label="Track"
+                autoComplete="off"
+                autoCapitalize="none"
+                spellCheck={false}
+                inputMode="search"
+                value={track}
+                onChange={(event) => setTrack(event.target.value)}
+              />
+            </div>
+          </div>
+        </div>
+
         {showPopularTracks ? (
           <section className="popular" aria-labelledby="popular-heading">
             <div className="popular-heading" id="popular-heading">
@@ -1124,14 +1311,17 @@ export default function IsrcFinder() {
               </ul>
             ) : (
               <ul className="popular-list">
-                {popularTracks.map((popularTrack, index) => (
+                {popularTracks.slice(0, POPULAR_TRACKS_COUNT).map((popularTrack, index) => (
                   <TrackRow
                     key={savedTrackKey(popularTrack.name, popularTrack.artist)}
                     track={popularTrack}
                     index={index}
                     saved={isTrackSaved(popularTrack.name, popularTrack.artist)}
                     onSelect={() => searchPopularTrack(popularTrack)}
-                    onToggleSave={() => toggleSuggestionSaved(popularTrack)}
+                    onToggleSave={() => void toggleSuggestionSaved(popularTrack)}
+                    saveDisabled={
+                      !!pendingSaves[savedTrackKey(popularTrack.name, popularTrack.artist)]
+                    }
                   />
                 ))}
               </ul>
@@ -1153,8 +1343,21 @@ export default function IsrcFinder() {
                     track={savedTrack}
                     index={index}
                     saved
-                    onSelect={() => searchPopularTrack(savedTrack)}
+                    onSelect={() => void handleSavedTrackSelect(savedTrack)}
                     onToggleSave={() => toggleSavedTrack(savedTrack)}
+                    saveDisabled={!!pendingSaves[savedTrack.id]}
+                    selectAriaLabel={
+                      savedTrack.isrcs.length > 0
+                        ? `Copy ISRC for ${savedTrack.name} by ${savedTrack.artist}`
+                        : `Search ${savedTrack.name} by ${savedTrack.artist}`
+                    }
+                    selectTitle={
+                      savedTrack.isrcs.length === 1
+                        ? `Copy ${savedTrack.isrcs[0]}`
+                        : savedTrack.isrcs.length > 1
+                          ? `Copy ${savedTrack.isrcs.length} ISRCs`
+                          : undefined
+                    }
                   />
                 ),
               )}
@@ -1167,44 +1370,21 @@ export default function IsrcFinder() {
                 onClick={() => setSavedExpanded((current) => !current)}
               >
                 <span>{savedExpanded ? "View Less" : "View More"}</span>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
                   <polyline points="6 9 12 15 18 9" />
                 </svg>
               </button>
             ) : null}
           </section>
         ) : null}
-
-        <div className="quick-fields">
-          <div className="field">
-            <input
-              type="text"
-              id="artistField"
-              placeholder="Artist (optional)"
-              aria-label="Artist"
-              autoComplete="off"
-              autoCapitalize="none"
-              spellCheck={false}
-              inputMode="search"
-              value={artist}
-              onChange={(event) => setArtist(event.target.value)}
-            />
-          </div>
-          <div className="field">
-            <input
-              type="text"
-              id="trackField"
-              placeholder="Track (optional)"
-              aria-label="Track"
-              autoComplete="off"
-              autoCapitalize="none"
-              spellCheck={false}
-              inputMode="search"
-              value={track}
-              onChange={(event) => setTrack(event.target.value)}
-            />
-          </div>
-        </div>
 
         <div id="output">{renderOutput()}</div>
       </div>

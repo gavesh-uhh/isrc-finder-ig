@@ -286,6 +286,50 @@ input[type="text"]:focus-visible {
   padding: 8px 10px;
 }
 
+.more-toggle {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  margin: 2px 0 4px;
+  padding: 6px;
+  border: 0;
+  background: transparent;
+  color: var(--text-dimmer);
+  font-size: 11.5px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.more-toggle:hover {
+  color: var(--text);
+}
+
+.more-toggle:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: -2px;
+}
+
+.more-toggle svg {
+  width: 11px;
+  height: 11px;
+  transition: transform 0.15s;
+}
+
+.more-toggle.expanded svg {
+  transform: rotate(180deg);
+}
+
+.more-fields {
+  display: none;
+}
+
+.more-fields.open {
+  display: block;
+}
+
 .suggest-panel {
   position: absolute;
   top: calc(100% + 6px);
@@ -579,12 +623,7 @@ button[type="submit"]:focus-visible {
   padding: 0;
 }
 
-/*
- * Dimension-free star button. It owns only appearance + centering so that
- * every layout context (track list, result card) just decides *where* it
- * sits via `align-self`, never re-declaring width/height/border to undo
- * defaults it should not have had in the first place.
- */
+/* Star button: appearance + centering only; layout contexts position it. */
 .save-toggle {
   display: grid;
   place-items: center;
@@ -610,36 +649,29 @@ button[type="submit"]:focus-visible {
   outline-offset: 2px;
 }
 
-/* Selected state, driven by aria-pressed alone so the track row and the result
-   card share one rule and no class name can collide with a layout rule. */
+.save-toggle:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Selected state via aria-pressed so card and row share one rule. */
 .save-toggle[aria-pressed="true"] {
   color: var(--text);
 }
 
-/* Icon is derived from the same token as the button, so the glyph can never
-   drift off-centre or overflow when --save-size changes. */
+/* Icon scales with --save-size. */
 .save-icon {
   display: block;
   inline-size: calc(var(--save-size) * 0.55);
   block-size: calc(var(--save-size) * 0.55);
 }
 
-/* A solid fill reads heavier and larger than the outline at the same path
-   size, so it is scaled down about its centre. No translate: the glyph must
-   stay dead-centre in the button or the whole control reads as off-centre. */
+/* Solid fill reads heavier, so scale it down about its centre. */
 .save-toggle[aria-pressed="true"] .save-icon {
   transform: scale(0.88);
 }
 
-/*
- * Track row. Shared by the popular grid and the saved list, so every visual
- * decision lives here and neither section can drift from the other.
- *
- * The row is a flex line holding two sibling controls: a select button that
- * fills the remaining width, and the star. Cross-axis centring on the row is
- * what centres the star; the cover and the select button opt back into
- * `align-self: stretch` so the artwork still bleeds to the full row height.
- */
+/* Track row shared by popular and saved lists. */
 .track-row {
   display: flex;
   align-items: center;
@@ -700,13 +732,10 @@ button[type="submit"]:focus-visible {
   background: linear-gradient(
     90deg,
     transparent 0%,
-    color-mix(in srgb, var(--surface) 6%, transparent) 26%,
-    color-mix(in srgb, var(--surface) 16%, transparent) 44%,
-    color-mix(in srgb, var(--surface) 32%, transparent) 60%,
-    color-mix(in srgb, var(--surface) 52%, transparent) 73%,
-    color-mix(in srgb, var(--surface) 71%, transparent) 84%,
-    color-mix(in srgb, var(--surface) 87%, transparent) 92%,
-    color-mix(in srgb, var(--surface) 96%, transparent) 97%,
+    transparent 42%,
+    color-mix(in srgb, var(--surface) 12%, transparent) 60%,
+    color-mix(in srgb, var(--surface) 36%, transparent) 74%,
+    color-mix(in srgb, var(--surface) 68%, transparent) 87%,
     var(--surface) 100%
   );
   content: "";
@@ -783,9 +812,7 @@ button[type="submit"]:focus-visible {
   }
 }
 
-/* Named for the section, not just "saved": a bare `.saved` also matches the
-   star button's selected-state class, which silently inherited this margin and
-   pulled the button 10px above centre. The star's state is aria-pressed only. */
+/* `.saved` would also match the star's selected state; scope section margin. */
 .saved-tracks {
   margin: -4px 0 16px;
 }
@@ -982,7 +1009,7 @@ button[type="submit"]:focus-visible {
   opacity: 1;
 }
 
-/* Result cards: the star sits at the top-right of the card, not centred. */
+/* Card star sits top-right, not centred. */
 .card-save {
   align-self: flex-start;
 }
