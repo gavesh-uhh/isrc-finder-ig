@@ -18,7 +18,7 @@ export default function InstallButton() {
       onClick={() => void promptInstall()}
     >
       <InstallIcon />
-      <span>Install App</span>
+      <span>Install</span>
     </button>
   );
 }

@@ -16,9 +16,11 @@ npm run dev
 
 Open [localhost:3000](http://localhost:3000).
 
+Set `DISCORD` to your Discord webhook URL in `.env.local` and your hosting environment to enable feedback.
+
 ## API
 
-All endpoints use `GET` and return JSON.
+The endpoints below use `GET` and return JSON.
 
 | Endpoint | Parameters | Returns |
 | --- | --- | --- |

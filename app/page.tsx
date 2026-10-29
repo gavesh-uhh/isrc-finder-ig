@@ -21,7 +21,7 @@ export default function HomePage() {
           }).replace(/</g, "\\u003c"),
         }}
       />
-      <IsrcFinder />
+      <IsrcFinder feedbackEnabled={Boolean(process.env.DISCORD?.trim())} />
       <Onboarding />
     </main>
   );

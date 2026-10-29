@@ -167,6 +167,136 @@ button {
   outline-offset: 4px;
 }
 
+.feedback-trigger {
+  cursor: pointer;
+}
+
+.feedback-rating {
+  min-width: 0;
+  margin: 0 0 8px;
+  padding: 0;
+  border: 0;
+}
+
+.feedback-rating legend {
+  padding: 0;
+  font-size: 12px;
+}
+
+.feedback-rating legend span {
+  color: var(--text-dim);
+}
+
+.feedback-rating-options {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.feedback-rating-option {
+  position: relative;
+  cursor: pointer;
+}
+
+.feedback-rating-option > span {
+  display: grid;
+  place-items: center;
+  min-height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  font-size: 14px;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.feedback-rating-option:hover > span {
+  border-color: var(--border-hover);
+}
+
+.feedback-rating-option input:checked + span {
+  border-color: var(--text);
+  background: var(--text);
+  color: var(--bg);
+}
+
+.feedback-rating-option input:focus-visible + span {
+  outline: 2px solid var(--text);
+  outline-offset: 3px;
+}
+
+.feedback-rating-option input:disabled + span {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.feedback-rating-caption {
+  margin-top: 12px;
+  color: var(--text-dim);
+  font-size: 11px;
+  text-align: center;
+}
+
+.feedback-count {
+  margin-top: -6px;
+  color: var(--text-dim);
+  font-size: 10px;
+  text-align: right;
+}
+
+.feedback-form .feedback-hint {
+  margin: -4px 0 0;
+  font-size: 11px;
+  line-height: 1.6;
+}
+.feedback-form {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  margin: 20px 0 0;
+  font-size: 13px;
+}
+
+.feedback-form textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.feedback-form textarea:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+.feedback-dialog button[type="submit"] {
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+}
+
+.feedback-dialog .feedback-close {
+  margin-top: 8px;
+  background: transparent;
+  color: var(--text-dim);
+}
+
+.feedback-dialog button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.feedback-form .feedback-error {
+  margin: 0;
+  color: var(--error);
+}
+
 header {
   position: relative;
   display: flex;

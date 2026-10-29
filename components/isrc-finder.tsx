@@ -22,6 +22,7 @@ import {
 } from "@/components/icons";
 import TrackRow from "@/components/track-row";
 import InstallButton from "@/components/install-button";
+import FeedbackButton from "@/components/feedback-button";
 import type {
   ApiErrorResponse,
   ArtworkResponse,
@@ -300,7 +301,7 @@ function ResultCard({
   );
 }
 
-export default function IsrcFinder() {
+export default function IsrcFinder({ feedbackEnabled }: { feedbackEnabled: boolean }) {
   const [theme, setTheme] = useState<Theme>("dark");
   const [mainQuery, setMainQuery] = useState("");
   const [artist, setArtist] = useState("");
@@ -1162,6 +1163,7 @@ export default function IsrcFinder() {
             <span>Buy me a coffee</span>
           </a>
           <InstallButton />
+          {feedbackEnabled ? <FeedbackButton /> : null}
         </div>
 
         <form id="searchForm" autoComplete="off" onSubmit={handleSubmit}>
