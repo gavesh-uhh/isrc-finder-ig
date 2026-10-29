@@ -1,4 +1,5 @@
 import IsrcFinder from "@/components/isrc-finder";
+import Onboarding from "@/components/onboarding";
 import { SITE_DESCRIPTION, SITE_URL } from "@/lib/site";
 
 export default function HomePage() {
@@ -21,6 +22,7 @@ export default function HomePage() {
         }}
       />
       <IsrcFinder />
+      <Onboarding />
     </main>
   );
 }

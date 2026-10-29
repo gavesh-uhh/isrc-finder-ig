@@ -100,6 +100,73 @@ button {
   max-width: 480px;
 }
 
+.onboarding {
+  width: min(360px, calc(100% - 32px));
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 20px 80px rgb(0 0 0 / 20%);
+}
+
+.onboarding::backdrop {
+  background: rgb(0 0 0 / 45%);
+  backdrop-filter: blur(4px);
+}
+
+.onboarding h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: -0.03em;
+}
+
+.onboarding p {
+  margin: 12px 0 24px;
+  color: var(--text-dim);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.onboarding button {
+  width: 100%;
+  min-height: 44px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--text);
+  color: var(--bg);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.onboarding-features {
+  margin: -8px 0 20px;
+  padding-left: 18px;
+  color: var(--text-dim);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.onboarding-features li + li {
+  margin-top: 8px;
+}
+
+.onboarding-guide {
+  margin-bottom: 20px;
+}
+
+.onboarding button:hover {
+  opacity: 0.85;
+}
+
+.onboarding button:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 4px;
+}
+
 header {
   position: relative;
   display: flex;
