@@ -140,6 +140,7 @@ function mergeRecording(primary: RecordingResult, secondary: RecordingResult): R
     score: primary.score ?? secondary.score,
     artworkUrl: primary.artworkUrl ?? secondary.artworkUrl,
     spotifyArtistId: primary.spotifyArtistId ?? secondary.spotifyArtistId,
+    spotifyUrl: primary.spotifyUrl ?? secondary.spotifyUrl,
     source: primary.source === secondary.source ? primary.source : "both",
   };
 }

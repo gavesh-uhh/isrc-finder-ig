@@ -15,12 +15,14 @@ test("merges duplicate ISRCs within and across providers while retaining enrichm
     ...recording("sp-1", first.isrcs),
     source: "spotify",
     artworkUrl: "https://example.com/cover.jpg",
+    spotifyUrl: "https://open.spotify.com/track/example",
     releases: [{ title: "Album" }],
   };
   const results = mergeRecordings([first, duplicate], [spotify, { ...spotify, id: "sp-2" }], 15);
   assert.equal(results.length, 1);
   assert.equal(results[0].source, "both");
   assert.equal(results[0].artworkUrl, spotify.artworkUrl);
+  assert.equal(results[0].spotifyUrl, spotify.spotifyUrl);
   assert.deepEqual(results[0].releases, spotify.releases);
   assert.deepEqual(first.releases, []);
 });

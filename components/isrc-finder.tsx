@@ -173,6 +173,9 @@ function ResultCard({
   onToggleSave: () => void;
 }) {
   const artist = recording.artists.join(", ") || "Unknown artist";
+  const spotifyUrl = recording.spotifyUrl ?? `https://open.spotify.com/search/${encodeURIComponent(
+    recording.isrcs[0] ? `isrc:${recording.isrcs[0]}` : `${recording.title} ${artist}`,
+  )}`;
   const [artistArtwork, setArtistArtwork] = useState<{ id: string; url: string } | null>(null);
   const artistId = recording.spotifyArtistId;
 
@@ -259,8 +262,7 @@ function ResultCard({
           <StarIcon saved={saved} />
         </button>
       </div>
-      {recording.isrcs.length > 0 ? (
-        <div className="isrc-row" aria-label={`ISRCs for ${recording.title}`}>
+      <div className="isrc-row" aria-label={`Actions for ${recording.title}`}>
           {recording.isrcs.map((isrc) => {
             const copied = copiedIsrc === isrc;
             return (
@@ -278,10 +280,22 @@ function ResultCard({
               </button>
             );
           })}
-        </div>
-      ) : (
+        <a
+          className="isrc-chip spotify-link"
+          href={spotifyUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={`Open ${recording.title} on Spotify (opens in a new tab)`}
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12 0a12 12 0 1 0 0 24 12 12 0 0 0 0-24Zm5.5 17.3a.75.75 0 0 1-1.03.25c-2.82-1.72-6.37-2.11-10.55-1.15a.75.75 0 0 1-.34-1.46c4.58-1.05 8.5-.6 11.67 1.33a.75.75 0 0 1 .25 1.03Zm1.47-3.27a.94.94 0 0 1-1.29.31c-3.23-1.98-8.15-2.55-11.96-1.39a.94.94 0 0 1-.55-1.8c4.35-1.32 9.78-.68 13.49 1.59a.94.94 0 0 1 .31 1.29Zm.13-3.4C15.23 8.33 8.84 8.12 5.14 9.24a1.13 1.13 0 0 1-.65-2.16c4.25-1.29 11.31-1.04 15.76 1.6a1.13 1.13 0 0 1-1.15 1.95Z" />
+          </svg>
+          Listen on Spotify
+        </a>
+      </div>
+      {recording.isrcs.length === 0 ? (
         <div className="no-isrc">No ISRC registered for this recording</div>
-      )}
+      ) : null}
     </article>
   );
 }

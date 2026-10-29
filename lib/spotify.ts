@@ -198,6 +198,7 @@ function normalizeTrack(track: SpotifyTrack, index: number): RecordingResult | n
     releaseCount: releases.length,
     artworkUrl: pickSpotifyArtwork(album?.images),
     spotifyArtistId: track.artists?.[0]?.id,
+    spotifyUrl: track.id ? `https://open.spotify.com/track/${encodeURIComponent(track.id)}` : undefined,
     source: "spotify",
     sourceUrl: track.external_urls?.spotify,
   };
