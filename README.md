@@ -41,6 +41,11 @@ GET /api/artwork?track=Because&artist=The%20Beatles
 
 Returns a Spotify album image URL when available.
 
+`GET /api/artist-artwork?artistId=<Spotify artist ID>` returns a cached artist
+profile image for the faint result-card background. Spotify does not expose a
+dedicated banner image; cards fall back to album artwork if no artist image is
+available. Artwork loads independently of search results.
+
 ### Popular tracks
 
 ```http
@@ -82,3 +87,16 @@ npm run start
 ```
 
 Set the environment variables in the hosting provider. Do not commit `.env` or `.env.local`. Use HTTPS in production so the PWA and clipboard APIs work reliably.
+
+## Search indexing
+
+The production URL is `https://isrc.gavesh.lol`, defined in `lib/site.ts` and used
+for canonical links, social metadata, structured data, and the sitemap. Update it
+if the domain changes.
+
+After deployment, verify the domain in Google Search Console, submit
+`https://isrc.gavesh.lol/sitemap.xml`, and request indexing of the homepage. You can
+also submit the sitemap in Bing Webmaster Tools. Search engines decide when to
+index the site and how to rank it; metadata keywords alone do not improve Google
+rankings. SEO metadata includes Spotify, Instagram music, and Sri Lanka search
+context; no separate content is served only to crawlers.

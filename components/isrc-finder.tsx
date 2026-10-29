@@ -173,6 +173,27 @@ function ResultCard({
   onToggleSave: () => void;
 }) {
   const artist = recording.artists.join(", ") || "Unknown artist";
+  const [artistArtwork, setArtistArtwork] = useState<{ id: string; url: string } | null>(null);
+  const artistId = recording.spotifyArtistId;
+
+  useEffect(() => {
+    if (!artistId) return;
+    const controller = new AbortController();
+    void fetch(`/api/artist-artwork?artistId=${encodeURIComponent(artistId)}`, {
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) return;
+        const data = await response.json();
+        if (typeof data.artworkUrl === "string" && !controller.signal.aborted) {
+          setArtistArtwork({ id: artistId, url: data.artworkUrl });
+        }
+      })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [artistId]);
+
+  const backdropUrl = artistArtwork && artistArtwork.id === artistId ? artistArtwork.url : artworkUrl;
   const firstRelease = recording.releases[0];
   const releaseParts: string[] = [];
 
@@ -202,6 +223,9 @@ function ResultCard({
 
   return (
     <article className="card">
+      {backdropUrl ? (
+        <img className="card-backdrop" src={backdropUrl} alt="" loading="lazy" aria-hidden="true" />
+      ) : null}
       <div className="card-top">
         <div className="card-left">
           {artworkUrl ? (
@@ -421,12 +445,6 @@ export default function IsrcFinder() {
       setSavedExpanded(false);
     }
   }, [savedTracks.length]);
-
-  useEffect(() => {
-    if (artist.trim() || track.trim()) {
-      setMoreOpen(true);
-    }
-  }, [artist, track]);
 
   const toggleSuggestionSaved = useCallback(
     async (track: TrackSuggestion) => {
@@ -1097,9 +1115,9 @@ export default function IsrcFinder() {
 
   return (
     <>
-      <div className="wrap">
+      <div>
         <header>
-          <div className="brand">ISRC Finder</div>
+          <h1 className="brand">ISRC Finder</h1>
           <button
             className="theme-toggle"
             type="button"
@@ -1113,21 +1131,21 @@ export default function IsrcFinder() {
         <div className="links">
           <a
             className="pill-link"
-            href="https://buymeacoffee.com/gaveshsaparamadu"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <CoffeeIcon />
-            <span>Buy me a coffee</span>
-          </a>
-          <a
-            className="pill-link"
             href="https://www.gavesh.lol"
             target="_blank"
             rel="noopener noreferrer"
           >
             <GlobeIcon />
             <span>gavesh.lol</span>
+          </a>
+          <a
+            className="pill-link"
+            href="https://buymeacoffee.com/gaveshsaparamadu"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <CoffeeIcon />
+            <span>Buy me a coffee</span>
           </a>
           <InstallButton />
         </div>

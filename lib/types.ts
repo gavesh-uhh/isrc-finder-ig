@@ -19,6 +19,7 @@ export interface RecordingResult {
   lengthMs?: number;
   score?: number;
   artworkUrl?: string;
+  spotifyArtistId?: string;
   source: ProviderName | "both";
   sourceUrl?: string;
 }

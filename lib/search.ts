@@ -139,6 +139,7 @@ function mergeRecording(primary: RecordingResult, secondary: RecordingResult): R
     lengthMs: primary.lengthMs ?? secondary.lengthMs,
     score: primary.score ?? secondary.score,
     artworkUrl: primary.artworkUrl ?? secondary.artworkUrl,
+    spotifyArtistId: primary.spotifyArtistId ?? secondary.spotifyArtistId,
     source: primary.source === secondary.source ? primary.source : "both",
   };
 }
@@ -245,5 +246,24 @@ export function mergeRecordings(
     }
   }
 
-  return merged.slice(0, limit);
+  const unique: RecordingResult[] = [];
+  for (const recording of merged) {
+    let combined = recording;
+    let position = unique.length;
+    // A recording with several ISRCs can connect multiple duplicate groups.
+    for (let index = unique.length - 1; index >= 0; index -= 1) {
+      const existing = unique[index];
+      if (
+        existing.id === combined.id ||
+        existing.isrcs.some((isrc) => combined.isrcs.includes(isrc))
+      ) {
+        combined = mergeRecording(existing, combined);
+        unique.splice(index, 1);
+        position = index;
+      }
+    }
+    unique.splice(position, 0, combined);
+  }
+
+  return unique.slice(0, limit);
 }

@@ -30,7 +30,9 @@ interface SpotifyImage {
 }
 
 interface SpotifyArtist {
+  id?: string;
   name?: string;
+  images?: SpotifyImage[];
 }
 
 interface SpotifyAlbum {
@@ -195,6 +197,7 @@ function normalizeTrack(track: SpotifyTrack, index: number): RecordingResult | n
     releases,
     releaseCount: releases.length,
     artworkUrl: pickSpotifyArtwork(album?.images),
+    spotifyArtistId: track.artists?.[0]?.id,
     source: "spotify",
     sourceUrl: track.external_urls?.spotify,
   };
@@ -432,6 +435,27 @@ export async function getSpotifyPopularTracks(
   );
 
   return { configured: true, tracks: sampleRandom(pool, boundedLimit) };
+}
+
+export async function getSpotifyArtistArtwork(artistId: string): Promise<string | null> {
+  if (!isSpotifyConfigured() || !/^[a-zA-Z0-9]{22}$/.test(artistId)) {
+    return null;
+  }
+
+  return cached(cacheKey("spotify:artist-artwork", [artistId]), CACHE_TTL, async () => {
+    const signal = getRequestSignal(SPOTIFY_TIMEOUT_MS);
+    const token = await requestSpotifyToken(signal);
+    const response = await fetch(`https://api.spotify.com/v1/artists/${artistId}`, {
+      headers: { Authorization: `Bearer ${token.value}`, Accept: "application/json" },
+      signal,
+      cache: "no-store",
+    });
+    if (response.status === 401) {
+      tokenCache = null;
+    }
+    const artist = await readJson<SpotifyArtist>(response, "Spotify");
+    return pickSpotifyArtwork(artist.images) ?? null;
+  });
 }
 
 export async function getSpotifyArtwork(

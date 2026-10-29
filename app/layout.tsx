@@ -3,6 +3,7 @@ import { Sora } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 
 import { PwaRegister } from "@/components/pwa-register";
+import { SITE_DESCRIPTION, SITE_TITLE, SITE_URL } from "@/lib/site";
 
 import "./globals.css";
 
@@ -14,8 +15,31 @@ const sora = Sora({
 });
 
 export const metadata: Metadata = {
-  title: "ISRC Finder",
-  description: "Search quickly for recording ISRCs with MusicBrainz and Spotify.",
+  metadataBase: new URL(SITE_URL),
+  title: SITE_TITLE,
+  description: SITE_DESCRIPTION,
+  keywords: [
+    "ISRC", "ISRC finder", "ISRC lookup", "ISRC search", "song ISRC code",
+    "Spotify ISRC", "Spotify ISRC finder", "Instagram ISRC", "Instagram music ISRC",
+    "IG music ISRC", "Reels music ISRC", "ISRC Sri Lanka", "ISRC Srilanka",
+    "Spotify ISRC Sri Lanka", "Instagram music Sri Lanka", "IG music Srilanka",
+    "Sinhala song ISRC", "Tamil song ISRC",
+  ],
+  alternates: { canonical: "/" },
+  robots: { index: true, follow: true },
+  openGraph: {
+    type: "website",
+    url: SITE_URL,
+    siteName: "ISRC Finder",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+  },
   applicationName: "ISRC Finder",
   manifest: "/manifest.webmanifest",
   icons: {
