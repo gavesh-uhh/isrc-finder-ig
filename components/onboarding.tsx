@@ -45,7 +45,7 @@ export default function Onboarding() {
         need and copy its unique ISRC code in a few taps.
       </p>
       <ul className="onboarding-features">
-        <li>Search a song or artist. Use More to narrow your search with separate artist and track fields.</li>
+        <li>Search a song or artist. Use More to search by artist or browse genres.</li>
         <li>Tap Copy ISRC on a matching result to copy its recording code.</li>
         <li>Star favorites to save them in this browser, or tap Listen on Spotify to open the music.</li>
       </ul>

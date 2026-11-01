@@ -51,6 +51,22 @@ export interface SuggestionResponse {
   configured: boolean;
 }
 
+export interface GenreOption {
+  name: string;
+  artworkUrl?: string;
+}
+
+export interface GenreListResponse {
+  genres: GenreOption[];
+  configured: boolean;
+}
+
+export interface GenreTracksResponse {
+  recordings: RecordingResult[];
+  genre: string;
+  configured: boolean;
+}
+
 export interface ArtworkResponse {
   artworkUrl: string | null;
   configured: boolean;

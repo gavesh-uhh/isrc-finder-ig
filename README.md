@@ -1,6 +1,6 @@
 # ISRC Finder
 
-Find and copy song ISRC codes using MusicBrainz and Spotify. Search recordings, save tracks locally, and open them on Spotify.
+Find and copy song ISRC codes using MusicBrainz and Spotify. Search recordings, browse genres, save tracks locally, and open them on Spotify.
 
 ## Get started
 
@@ -25,6 +25,7 @@ The endpoints below use `GET` and return JSON.
 | Endpoint | Parameters | Returns |
 | --- | --- | --- |
 | `/api/search` | At least one of `query`, `artist`, `track`; optional `limit` (1–25) | Recordings and ISRCs |
+| `/api/genres` | None returns Spotify genre categories; `genre` returns top Spotify tracks for that genre | Genre list or recordings with ISRCs |
 | `/api/suggestions` | `track` | Spotify track suggestions |
 | `/api/artwork` | `track`, `artist` | Album image URL |
 | `/api/artist-artwork` | `artistId` | Spotify artist image URL |

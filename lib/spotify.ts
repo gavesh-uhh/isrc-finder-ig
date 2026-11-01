@@ -8,6 +8,7 @@ import {
   safeImageUrl,
 } from "./query";
 import type {
+  GenreOption,
   ProviderStatus,
   RecordingResult,
   ReleaseSummary,
@@ -20,8 +21,12 @@ const PLAYLISTS_ENDPOINT = "https://api.spotify.com/v1/playlists";
 const POPULAR_PLAYLIST_ID = "37i9dQZEVXbMDoHDwVN2tF";
 const CACHE_TTL = 10 * 60 * 1_000;
 const POPULAR_CACHE_TTL = 15 * 60 * 1_000;
+const GENRE_CACHE_TTL = 15 * 60 * 1_000;
 const POPULAR_POOL_SIZE = 50;
 const SPOTIFY_TIMEOUT_MS = 6_000;
+
+// Spotify's browse categories mix genres with moods and merchandising shelves.
+const GENRE_NAMES = ["pop", "hip hop", "electronic", "latin", "rock", "indie", "country", "r&b", "k-pop", "metal", "jazz", "classical", "folk", "soul", "punk", "ambient", "blues", "reggae", "funk", "sinhala", "tamil"];
 
 interface SpotifyImage {
   url?: string;
@@ -52,6 +57,7 @@ interface SpotifyTrack {
 
 interface SpotifySearchResponse {
   tracks?: { items?: SpotifyTrack[] };
+  artists?: { items?: SpotifyArtist[] };
 }
 
 interface SpotifyPlaylistItemsResponse {
@@ -146,10 +152,14 @@ async function requestSpotifyToken(signal: AbortSignal): Promise<SpotifyToken> {
   return tokenRequest;
 }
 
-function buildSpotifyQuery(query: string, artist: string, track: string): string {
+function buildSpotifyQuery(query: string, artist: string, track: string, genre = ""): string {
   const directIsrc = normalizeIsrc(query) ?? normalizeIsrc(track) ?? normalizeIsrc(artist);
   if (directIsrc) {
     return `isrc:${directIsrc}`;
+  }
+
+  if (genre) {
+    return `genre:"${quoteSpotifyField(genre)}"`;
   }
 
   if (track || artist) {
@@ -210,12 +220,14 @@ async function requestSpotifySearch(
   track: string,
   limit: number,
   signal: AbortSignal,
+  genre = "",
 ): Promise<RecordingResult[]> {
   const token = await requestSpotifyToken(signal);
   const url = new URL(SEARCH_ENDPOINT);
-  url.searchParams.set("q", buildSpotifyQuery(query, artist, track));
+  url.searchParams.set("q", buildSpotifyQuery(query, artist, track, genre));
   url.searchParams.set("type", "track");
   url.searchParams.set("limit", String(Math.min(limit, 10)));
+  url.searchParams.set("market", process.env.SPOTIFY_MARKET?.trim() || "US");
 
   const response = await fetch(url, {
     headers: {
@@ -438,6 +450,56 @@ export async function getSpotifyPopularTracks(
   return { configured: true, tracks: sampleRandom(pool, boundedLimit) };
 }
 
+export async function getSpotifyGenres(
+  parentSignal?: AbortSignal,
+): Promise<{ configured: boolean; genres: GenreOption[] }> {
+  if (!isSpotifyConfigured()) {
+    return { configured: false, genres: [] };
+  }
+
+  const signal = getRequestSignal(SPOTIFY_TIMEOUT_MS, parentSignal);
+  const genres = await cached(
+    cacheKey("spotify:genres", ["en_US", GENRE_NAMES]),
+    GENRE_CACHE_TTL,
+    async () => {
+      return Promise.all(GENRE_NAMES.map(async (name): Promise<GenreOption> => {
+        try {
+          const tracks = await requestSpotifySearch("", "", "", 1, signal, name);
+          return { name, artworkUrl: tracks[0]?.artworkUrl };
+        } catch {
+          return { name };
+        }
+      }));
+    },
+    { dedupe: !parentSignal },
+  );
+
+  return { configured: true, genres };
+}
+
+export async function searchSpotifyByGenre(
+  genre: string,
+  limit: number,
+  parentSignal?: AbortSignal,
+): Promise<{ status: ProviderStatus; recordings: RecordingResult[] }> {
+  if (!isSpotifyConfigured()) {
+    return { status: "skipped", recordings: [] };
+  }
+
+  const signal = getRequestSignal(SPOTIFY_TIMEOUT_MS, parentSignal);
+  try {
+    const recordings = await cached(
+      cacheKey("spotify:genre", [genre.toLowerCase(), limit]),
+      CACHE_TTL,
+      () => requestSpotifySearch("", "", "", limit, signal, genre),
+      { dedupe: !parentSignal },
+    );
+    return { status: "ok", recordings };
+  } catch {
+    return { status: "error", recordings: [] };
+  }
+}
+
 export async function getSpotifyArtistArtwork(artistId: string): Promise<string | null> {
   if (!isSpotifyConfigured() || !/^[a-zA-Z0-9]{22}$/.test(artistId)) {
     return null;
@@ -457,6 +519,22 @@ export async function getSpotifyArtistArtwork(artistId: string): Promise<string 
     const artist = await readJson<SpotifyArtist>(response, "Spotify");
     return pickSpotifyArtwork(artist.images) ?? null;
   });
+}
+
+export async function searchSpotifyArtists(query: string, parentSignal?: AbortSignal): Promise<Array<{ id: string; name: string; artworkUrl?: string }>> {
+  if (!isSpotifyConfigured()) return [];
+  const signal = getRequestSignal(SPOTIFY_TIMEOUT_MS, parentSignal);
+  const token = await requestSpotifyToken(signal);
+  const url = new URL(SEARCH_ENDPOINT);
+  url.searchParams.set("q", query);
+  url.searchParams.set("type", "artist");
+  url.searchParams.set("limit", "8");
+  const response = await fetch(url, { headers: { Authorization: `Bearer ${token.value}` }, signal, cache: "no-store" });
+  if (response.status === 401) tokenCache = null;
+  const data = await readJson<SpotifySearchResponse>(response, "Spotify");
+  return (data.artists?.items ?? []).flatMap((artist) => artist.id && artist.name
+    ? [{ id: artist.id, name: artist.name, artworkUrl: pickSpotifyArtwork(artist.images) }]
+    : []);
 }
 
 export async function getSpotifyArtwork(

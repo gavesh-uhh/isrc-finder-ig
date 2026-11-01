@@ -23,9 +23,15 @@ import {
 import TrackRow from "@/components/track-row";
 import InstallButton from "@/components/install-button";
 import FeedbackButton from "@/components/feedback-button";
+import GenreBrowser from "@/components/genre-browser";
+import ArtistField from "@/components/artist-field";
+import { ChevronDown, LayoutGrid } from "lucide-react";
 import type {
   ApiErrorResponse,
   ArtworkResponse,
+  GenreListResponse,
+  GenreOption,
+  GenreTracksResponse,
   RecordingResult,
   SearchResponse,
   SavedTrack,
@@ -174,9 +180,11 @@ function ResultCard({
   onToggleSave: () => void;
 }) {
   const artist = recording.artists.join(", ") || "Unknown artist";
-  const spotifyUrl = recording.spotifyUrl ?? `https://open.spotify.com/search/${encodeURIComponent(
-    recording.isrcs[0] ? `isrc:${recording.isrcs[0]}` : `${recording.title} ${artist}`,
-  )}`;
+  const spotifyUrl =
+    recording.spotifyUrl ??
+    `https://open.spotify.com/search/${encodeURIComponent(
+      recording.isrcs[0] ? `isrc:${recording.isrcs[0]}` : `${recording.title} ${artist}`,
+    )}`;
   const [artistArtwork, setArtistArtwork] = useState<{ id: string; url: string } | null>(null);
   const artistId = recording.spotifyArtistId;
 
@@ -197,7 +205,8 @@ function ResultCard({
     return () => controller.abort();
   }, [artistId]);
 
-  const backdropUrl = artistArtwork && artistArtwork.id === artistId ? artistArtwork.url : artworkUrl;
+  const backdropUrl =
+    artistArtwork && artistArtwork.id === artistId ? artistArtwork.url : artworkUrl;
   const firstRelease = recording.releases[0];
   const releaseParts: string[] = [];
 
@@ -264,23 +273,23 @@ function ResultCard({
         </button>
       </div>
       <div className="isrc-row" aria-label={`Actions for ${recording.title}`}>
-          {recording.isrcs.map((isrc) => {
-            const copied = copiedIsrc === isrc;
-            return (
-              <button
-                className={`isrc-chip${copied ? " copied" : ""}`}
-                data-isrc={isrc}
-                key={isrc}
-                type="button"
-                title={copied ? `Copied ${isrc}` : "Copy ISRC"}
-                aria-label={copied ? `Copied ISRC ${isrc}` : `Copy ISRC ${isrc}`}
-                onClick={() => onCopy(isrc)}
-              >
-                <CopyIcon copied={copied} />
-                {copied ? isrc : "Copy ISRC"}
-              </button>
-            );
-          })}
+        {recording.isrcs.map((isrc) => {
+          const copied = copiedIsrc === isrc;
+          return (
+            <button
+              className={`isrc-chip${copied ? " copied" : ""}`}
+              data-isrc={isrc}
+              key={isrc}
+              type="button"
+              title={copied ? `Copied ${isrc}` : "Copy ISRC"}
+              aria-label={copied ? `Copied ISRC ${isrc}` : `Copy ISRC ${isrc}`}
+              onClick={() => onCopy(isrc)}
+            >
+              <CopyIcon copied={copied} />
+              {copied ? isrc : "Copy ISRC"}
+            </button>
+          );
+        })}
         <a
           className="isrc-chip spotify-link"
           href={spotifyUrl}
@@ -305,7 +314,13 @@ export default function IsrcFinder({ feedbackEnabled }: { feedbackEnabled: boole
   const [theme, setTheme] = useState<Theme>("dark");
   const [mainQuery, setMainQuery] = useState("");
   const [artist, setArtist] = useState("");
-  const [track, setTrack] = useState("");
+  const [genreBrowserOpen, setGenreBrowserOpen] = useState(false);
+  const [genreOptions, setGenreOptions] = useState<GenreOption[]>([]);
+  const [genresLoading, setGenresLoading] = useState(false);
+  const [genresLoaded, setGenresLoaded] = useState(false);
+  const [genresMessage, setGenresMessage] = useState("");
+  const [activeGenre, setActiveGenre] = useState("");
+  const [showGenreTip, setShowGenreTip] = useState(false);
   const [suggestions, setSuggestions] = useState<TrackSuggestion[]>([]);
   const [popularTracks, setPopularTracks] = useState<TrackSuggestion[]>([]);
   const [popularLoading, setPopularLoading] = useState(true);
@@ -560,6 +575,65 @@ export default function IsrcFinder({ feedbackEnabled }: { feedbackEnabled: boole
     };
   }, []);
 
+  useEffect(() => {
+    if ((!genreBrowserOpen && !moreOpen) || genresLoaded) {
+      return;
+    }
+
+    const controller = new AbortController();
+    setGenresLoading(true);
+    setGenresMessage("");
+
+    void fetch("/api/genres", {
+      headers: { Accept: "application/json" },
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        const data = (await response.json()) as GenreListResponse | ApiErrorResponse;
+        if (!response.ok || "error" in data) {
+          throw new Error("error" in data ? data.error : "Genres are temporarily unavailable.");
+        }
+        return data;
+      })
+      .then((data) => {
+        if (controller.signal.aborted) {
+          return;
+        }
+        setGenreOptions(data.genres);
+        setGenresLoaded(true);
+        if (!data.configured) {
+          setGenresMessage("Genre browsing needs Spotify credentials.");
+        } else if (data.genres.length === 0) {
+          setGenresMessage("No genres available right now.");
+        }
+      })
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted) {
+          setGenresMessage(
+            error instanceof Error ? error.message : "Genres are temporarily unavailable.",
+          );
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setGenresLoading(false);
+        }
+      });
+
+    return () => controller.abort();
+  }, [genreBrowserOpen, moreOpen, genresLoaded]);
+
+  useEffect(() => {
+    try {
+      if (!localStorage.getItem("tooltip_viewall_shown")) {
+        setShowGenreTip(true);
+        localStorage.setItem("tooltip_viewall_shown", "true");
+      }
+    } catch {
+      // Browsing remains available when storage is disabled.
+    }
+  }, []);
+
   const fetchArtwork = useCallback(
     async (name: string, artistName: string): Promise<string | null> => {
       const key = artworkKey(name, artistName);
@@ -765,7 +839,8 @@ export default function IsrcFinder({ feedbackEnabled }: { feedbackEnabled: boole
 
     setMainQuery("");
     setArtist("");
-    setTrack("");
+    setGenreBrowserOpen(false);
+    setActiveGenre("");
     setResults([]);
     setHasSearched(false);
     setIsSearching(false);
@@ -785,6 +860,8 @@ export default function IsrcFinder({ feedbackEnabled }: { feedbackEnabled: boole
     searchAbortRef.current = controller;
     setIsSearching(true);
     setHasSearched(true);
+    setGenreBrowserOpen(false);
+    setActiveGenre("");
     setError("");
     setNotice("");
     setCopiedIsrc(null);
@@ -840,6 +917,76 @@ export default function IsrcFinder({ feedbackEnabled }: { feedbackEnabled: boole
     }
   }, []);
 
+  const toggleGenreBrowser = useCallback(() => {
+    if (!genreBrowserOpen) {
+      closeSuggestions();
+      searchAbortRef.current?.abort();
+      searchAbortRef.current = null;
+      searchRequestIdRef.current += 1;
+      setIsSearching(false);
+    }
+    setGenreBrowserOpen((current) => !current);
+  }, [closeSuggestions, genreBrowserOpen]);
+
+  const performGenreSearch = useCallback(
+    async (genre: string) => {
+      const nextGenre = genre.trim();
+      if (!nextGenre) {
+        return;
+      }
+
+      closeSuggestions();
+      searchAbortRef.current?.abort();
+      const requestId = searchRequestIdRef.current + 1;
+      searchRequestIdRef.current = requestId;
+      const controller = new AbortController();
+      searchAbortRef.current = controller;
+
+      setMainQuery("");
+      setArtist("");
+      setGenreBrowserOpen(false);
+      setActiveGenre(nextGenre);
+      setResults([]);
+      setIsSearching(true);
+      setHasSearched(true);
+      setError("");
+      setNotice("");
+      setCopiedIsrc(null);
+
+      try {
+        const response = await fetch(`/api/genres?genre=${encodeURIComponent(nextGenre)}`, {
+          headers: { Accept: "application/json" },
+          signal: controller.signal,
+        });
+        const data = (await response.json()) as GenreTracksResponse | ApiErrorResponse;
+        if (controller.signal.aborted || requestId !== searchRequestIdRef.current) {
+          return;
+        }
+        if (!response.ok || "error" in data) {
+          throw new Error("error" in data ? data.error : "Genre lookup failed");
+        }
+
+        setResults(data.recordings);
+        setSpotifyConfigured(data.configured);
+      } catch (genreError) {
+        if (controller.signal.aborted || requestId !== searchRequestIdRef.current) {
+          return;
+        }
+        setResults([]);
+        setError(
+          genreError instanceof Error
+            ? genreError.message
+            : "Genre lookup failed. Wait a moment and try again.",
+        );
+      } finally {
+        if (!controller.signal.aborted && requestId === searchRequestIdRef.current) {
+          setIsSearching(false);
+        }
+      }
+    },
+    [closeSuggestions],
+  );
+
   const searchPopularTrack = useCallback(
     (popularTrack: TrackSuggestion) => {
       const nextQuery = `${popularTrack.name} ${popularTrack.artist}`;
@@ -848,7 +995,6 @@ export default function IsrcFinder({ feedbackEnabled }: { feedbackEnabled: boole
         setMainQuery(nextQuery);
       }
       setArtist(popularTrack.artist);
-      setTrack(popularTrack.name);
       closeSuggestions();
       void performSearch({
         query: "",
@@ -872,7 +1018,7 @@ export default function IsrcFinder({ feedbackEnabled }: { feedbackEnabled: boole
       const parts: SearchParts = {
         query: mainQuery.trim(),
         artist: artist.trim(),
-        track: track.trim(),
+        track: "",
       };
 
       if (!parts.query && !parts.artist && !parts.track) {
@@ -882,7 +1028,7 @@ export default function IsrcFinder({ feedbackEnabled }: { feedbackEnabled: boole
 
       void performSearch(parts);
     },
-    [artist, closeSuggestions, mainQuery, performSearch, track],
+    [artist, closeSuggestions, mainQuery, performSearch],
   );
 
   const copyIsrc = useCallback(
@@ -978,7 +1124,6 @@ export default function IsrcFinder({ feedbackEnabled }: { feedbackEnabled: boole
         setMainQuery(nextQuery);
       }
       setArtist(suggestion.artist);
-      setTrack(suggestion.name);
       closeSuggestions();
       const key = artworkKey(suggestion.name, suggestion.artist);
       void performSearch(
@@ -1065,11 +1210,22 @@ export default function IsrcFinder({ feedbackEnabled }: { feedbackEnabled: boole
   };
 
   const renderOutput = () => {
+    if (genreBrowserOpen) {
+      return (
+        <GenreBrowser
+          genres={genreOptions}
+          loading={genresLoading}
+          message={genresMessage}
+          onSelect={(genre) => void performGenreSearch(genre)}
+        />
+      );
+    }
+
     if (isSearching) {
       return (
         <div className="status" role="status">
           <span className="spinner" />
-          &nbsp;&nbsp;Searching recordings…
+          &nbsp;&nbsp;{activeGenre ? `Loading ${activeGenre} tracks…` : "Searching recordings…"}
         </div>
       );
     }
@@ -1089,12 +1245,26 @@ export default function IsrcFinder({ feedbackEnabled }: { feedbackEnabled: boole
         return <div className="status">{notice}</div>;
       }
       return hasSearched ? (
-        <div className="status">No recordings found. Try different terms.</div>
+        <div className="status">
+          {activeGenre
+            ? `No ${activeGenre} tracks found. Try another genre.`
+            : "No recordings found. Try different terms."}
+        </div>
       ) : null;
     }
 
     return (
       <>
+        {activeGenre ? (
+          <div className="genre-results-head">
+            <span>{activeGenre}</span>
+            <img
+              className="genre-browser-icon-thing"
+              alt="Spotify Logo"
+              src="https://thumb.wikimedia.org/wikipedia/commons/thumb/8/84/Spotify_icon.svg/1280px-Spotify_icon.svg.png"
+            />
+          </div>
+        ) : null}
         <div className="results">
           {results.map((result, index) => (
             <ResultCard
@@ -1115,17 +1285,26 @@ export default function IsrcFinder({ feedbackEnabled }: { feedbackEnabled: boole
   };
 
   const showPopularTracks =
+    !genreBrowserOpen &&
+    !activeGenre &&
     !isSearching &&
     !mainQuery.trim() &&
     !artist.trim() &&
-    !track.trim() &&
     results.length === 0 &&
     (popularLoading || (popularConfigured && popularTracks.length > 0));
 
-  const showSavedTracks = savedTracks.length > 0 && results.length === 0 && !isSearching;
+  const showSavedTracks =
+    savedTracks.length > 0 &&
+    results.length === 0 &&
+    !isSearching &&
+    !genreBrowserOpen &&
+    !activeGenre;
 
   const canClear =
-    results.length > 0 || hasSearched || Boolean(mainQuery || artist || track || error);
+    results.length > 0 ||
+    hasSearched ||
+    genreBrowserOpen ||
+    Boolean(mainQuery || artist || activeGenre || error);
   const hasTrailingControl = canClear || suggestionsLoading;
 
   return (
@@ -1160,7 +1339,7 @@ export default function IsrcFinder({ feedbackEnabled }: { feedbackEnabled: boole
             rel="noopener noreferrer"
           >
             <CoffeeIcon />
-            <span>Buy me a coffee</span>
+            <span>Buy me a ☕</span>
           </a>
           <InstallButton />
           {feedbackEnabled ? <FeedbackButton /> : null}
@@ -1270,6 +1449,21 @@ export default function IsrcFinder({ feedbackEnabled }: { feedbackEnabled: boole
               )}
             </div>
           </div>
+          <div className="genre-button-wrap">
+            <button
+              className="view-all-btn"
+              type="button"
+              aria-expanded={genreBrowserOpen}
+              aria-controls="genre-browser"
+              aria-label={genreBrowserOpen ? "Close genre browser" : "View all genres"}
+              title="Browse genres"
+              aria-describedby={showGenreTip ? "genre-tip" : undefined}
+              onClick={() => { setShowGenreTip(false); toggleGenreBrowser(); }}
+            >
+              <LayoutGrid size={18} aria-hidden="true" />
+            </button>
+            {showGenreTip ? <div className="genre-tip" id="genre-tip" role="tooltip">New: explore popular tracks by genre! <button type="button" aria-label="Dismiss tip" onClick={() => setShowGenreTip(false)}>×</button></div> : null}
+          </div>
           <button
             type="submit"
             id="submitBtn"
@@ -1304,35 +1498,27 @@ export default function IsrcFinder({ feedbackEnabled }: { feedbackEnabled: boole
         </button>
         <div className={`more-fields${moreOpen ? " open" : ""}`} id="more-fields">
           <div className="quick-fields">
-            <div className="field">
-              <input
-                type="text"
-                id="artistField"
-                placeholder="Artist (optional)"
-                aria-label="Artist"
-                autoComplete="off"
-                autoCapitalize="none"
-                spellCheck={false}
-                inputMode="search"
-                value={artist}
-                onChange={(event) => setArtist(event.target.value)}
-              />
-            </div>
-            <div className="field">
-              <input
-                type="text"
-                id="trackField"
-                placeholder="Track (optional)"
-                aria-label="Track"
-                autoComplete="off"
-                autoCapitalize="none"
-                spellCheck={false}
-                inputMode="search"
-                value={track}
-                onChange={(event) => setTrack(event.target.value)}
-              />
-            </div>
+            <ArtistField value={artist} onChange={setArtist} onSelect={(name) => {
+              closeSuggestions();
+              setMainQuery("");
+              void performSearch({ query: "", artist: name, track: "" });
+            }} />
+            <details className="genre-select-wrap" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) event.currentTarget.open = false; }} onKeyDown={(event) => { if (event.key === "Escape") { event.currentTarget.open = false; event.currentTarget.querySelector("summary")?.focus(); } }}>
+              <summary className="genre-select" aria-label="Browse by genre">
+                <span>{activeGenre || (genresLoading ? "Loading…" : "Genre")}</span>
+                <ChevronDown aria-hidden="true" />
+              </summary>
+              <div className="genre-select-list" aria-label="Genres">
+                {genreOptions.map((genre) => (
+                  <button key={genre.name} type="button" onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); void performGenreSearch(genre.name); }}>
+                    {genre.name}
+                  </button>
+                ))}
+                {!genresLoading && genreOptions.length === 0 ? <span>No genres available</span> : null}
+              </div>
+            </details>
           </div>
+          {genresMessage ? <p className="genre-select-message" role="status">{genresMessage}</p> : null}
         </div>
 
         {showPopularTracks ? (

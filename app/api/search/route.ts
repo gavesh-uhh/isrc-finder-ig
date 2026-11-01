@@ -229,9 +229,7 @@ export async function GET(request: NextRequest) {
     }
 
     let notice: string | undefined;
-    if (providers.musicbrainz === "error" && recordings.length > 0) {
-      notice = "MusicBrainz is temporarily unavailable; showing Spotify matches only.";
-    } else if (
+    if (
       providers.spotify === "error" &&
       isSpotifyConfigured() &&
       recordings.length > 0

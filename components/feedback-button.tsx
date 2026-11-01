@@ -56,7 +56,10 @@ export default function FeedbackButton() {
       <dialog ref={dialogRef} className="onboarding feedback-dialog" aria-labelledby="feedback-title" onCancel={(event) => {
         if (sending) event.preventDefault();
       }}>
-        <h2 id="feedback-title">{sent ? "Feedback sent" : "Send feedback"}</h2>
+        <div className="feedback-heading">
+          <h2 id="feedback-title">{sent ? "Feedback sent" : "Help us make it better"}</h2>
+          {!sent ? <p>Share a problem or an idea.</p> : null}
+        </div>
         {sent ? (
           <p role="status">Thanks for helping improve ISRC Finder.</p>
         ) : (
@@ -76,7 +79,7 @@ export default function FeedbackButton() {
               </div>
             </fieldset>
             <label htmlFor="feedback-message">What should we fix or improve?</label>
-            <p className="feedback-hint" id="feedback-hint">For a problem, include what you tried, what happened, and what you expected. A song name or device/browser helps too.</p>
+            <p className="feedback-hint" id="feedback-hint">Include a song or device if helpful.</p>
             <textarea id="feedback-message" aria-describedby="feedback-hint" value={message} onChange={(event) => setMessage(event.target.value)} maxLength={1000} rows={4} required disabled={sending} placeholder="Describe the issue or share an idea…" />
             <span className="feedback-count">{message.length} / 1000</span>
             {error ? <p className="feedback-error" role="alert">{error}</p> : null}
