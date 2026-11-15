@@ -2,6 +2,8 @@
 
 import { useRef, useState, type FormEvent } from "react";
 
+import { getClientInfo } from "@/lib/fingerprint";
+
 const RATINGS = [
   { label: "Frustrating" },
   { label: "Needs work" },
@@ -27,7 +29,7 @@ export default function FeedbackButton() {
       const response = await fetch("/api/feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message, rating }),
+        body: JSON.stringify({ message, rating, client: getClientInfo() }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Could not send feedback.");

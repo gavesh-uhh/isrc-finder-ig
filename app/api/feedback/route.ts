@@ -50,9 +50,17 @@ export async function POST(request: NextRequest) {
   if (body.rating !== undefined && (!Number.isInteger(body.rating) || body.rating < 1 || body.rating > 5)) {
     return NextResponse.json({ error: "Choose a rating between 1 and 5." }, { status: 400 });
   }
+  const client =
+    body.client && typeof body.client === "object"
+      ? {
+          id: typeof body.client.id === "string" ? body.client.id : undefined,
+          summary: typeof body.client.summary === "string" ? body.client.summary : undefined,
+          agent: typeof body.client.agent === "string" ? body.client.agent : undefined,
+        }
+      : undefined;
 
   try {
-    await sendDiscordFeedback(body.message, webhookUrl, body.rating);
+    await sendDiscordFeedback(body.message, webhookUrl, body.rating, client);
     return NextResponse.json({ ok: true });
   } catch {
     return NextResponse.json({ error: "Could not send feedback. Please try again later." }, { status: 502 });

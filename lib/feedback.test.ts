@@ -44,3 +44,18 @@ test("includes the selected rating and rejects invalid ratings", async (context)
   }
   assert.equal(fetchMock.mock.callCount(), 1);
 });
+
+test("adds device details as single lines", async (context) => {
+  context.mock.method(globalThis, "fetch", async (_url: URL, init: RequestInit) => {
+    assert.equal(
+      JSON.parse(init.body as string).content,
+      "**ISRC Finder feedback**\nRating: 4/5\nDevice: a1b2c3d4 — Win32 · 1920x1080@1x · en-US\nUA: Mozilla/5.0 X\nNice\nsecond line",
+    );
+    return new Response(null, { status: 204 });
+  });
+  await sendDiscordFeedback("Nice\nsecond line", webhook, 4, {
+    id: "a1b2c3d4",
+    summary: "Win32 · 1920x1080@1x · en-US",
+    agent: "Mozilla/5.0\nX",
+  });
+});

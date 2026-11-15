@@ -23,6 +23,7 @@ import {
 import TrackRow from "@/components/track-row";
 import InstallButton from "@/components/install-button";
 import FeedbackButton from "@/components/feedback-button";
+import HelpfulPrompt from "@/components/helpful-prompt";
 import GenreBrowser from "@/components/genre-browser";
 import ArtistField from "@/components/artist-field";
 import { ChevronDown, LayoutGrid } from "lucide-react";
@@ -1615,6 +1616,7 @@ export default function IsrcFinder({ feedbackEnabled }: { feedbackEnabled: boole
       <div className={`toast${toast ? " show" : ""}`} role="status" aria-live="polite">
         {toast}
       </div>
+      {feedbackEnabled ? <HelpfulPrompt active={hasSearched && results.length > 0} /> : null}
     </>
   );
 }

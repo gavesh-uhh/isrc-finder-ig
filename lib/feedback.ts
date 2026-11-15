@@ -1,4 +1,20 @@
-export async function sendDiscordFeedback(message: string, webhookUrl: string, rating?: number): Promise<void> {
+export type FeedbackClient = {
+  id?: string;
+  summary?: string;
+  agent?: string;
+};
+
+function oneLine(value: string | undefined, max: number): string | undefined {
+  const text = value?.replace(/[\r\n\t]+/g, " ").trim().slice(0, max);
+  return text || undefined;
+}
+
+export async function sendDiscordFeedback(
+  message: string,
+  webhookUrl: string,
+  rating?: number,
+  client?: FeedbackClient,
+): Promise<void> {
   if (!message.trim() || message.length > 1000) {
     throw new Error("Feedback must contain 1–1000 characters.");
   }
@@ -14,11 +30,25 @@ export async function sendDiscordFeedback(message: string, webhookUrl: string, r
     throw new Error("Invalid Discord webhook configuration.");
   }
 
+  const device = client
+    ? [oneLine(client.id, 40), oneLine(client.summary, 160)].filter(Boolean).join(" — ")
+    : "";
+  const agent = oneLine(client?.agent, 400);
+  const content = [
+    "**ISRC Finder feedback**",
+    rating === undefined ? undefined : `Rating: ${rating}/5`,
+    device ? `Device: ${device}` : undefined,
+    agent ? `UA: ${agent}` : undefined,
+    message.trim(),
+  ]
+    .filter(Boolean)
+    .join("\n");
+
   const response = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      content: `**ISRC Finder feedback**\n${rating === undefined ? "" : `Rating: ${rating}/5\n`}${message.trim()}`,
+      content,
       allowed_mentions: { parse: [] },
     }),
     signal: AbortSignal.timeout(8000),
