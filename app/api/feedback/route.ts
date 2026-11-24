@@ -54,7 +54,11 @@ export async function POST(request: NextRequest) {
     body.client && typeof body.client === "object"
       ? {
           id: typeof body.client.id === "string" ? body.client.id : undefined,
-          summary: typeof body.client.summary === "string" ? body.client.summary : undefined,
+          device: typeof body.client.device === "string" ? body.client.device : undefined,
+          browser: typeof body.client.browser === "string" ? body.client.browser : undefined,
+          screen: typeof body.client.screen === "string" ? body.client.screen : undefined,
+          locale: typeof body.client.locale === "string" ? body.client.locale : undefined,
+          input: typeof body.client.input === "string" ? body.client.input : undefined,
           agent: typeof body.client.agent === "string" ? body.client.agent : undefined,
         }
       : undefined;

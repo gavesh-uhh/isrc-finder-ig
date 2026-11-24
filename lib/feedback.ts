@@ -1,6 +1,10 @@
 export type FeedbackClient = {
   id?: string;
-  summary?: string;
+  device?: string;
+  browser?: string;
+  screen?: string;
+  locale?: string;
+  input?: string;
   agent?: string;
 };
 
@@ -30,25 +34,30 @@ export async function sendDiscordFeedback(
     throw new Error("Invalid Discord webhook configuration.");
   }
 
-  const device = client
-    ? [oneLine(client.id, 40), oneLine(client.summary, 160)].filter(Boolean).join(" — ")
-    : "";
-  const agent = oneLine(client?.agent, 400);
-  const content = [
-    "**ISRC Finder feedback**",
-    rating === undefined ? undefined : `Rating: ${rating}/5`,
-    device ? `Device: ${device}` : undefined,
-    agent ? `UA: ${agent}` : undefined,
-    message.trim(),
-  ]
-    .filter(Boolean)
-    .join("\n");
+  const fields: Array<{ name: string; value: string; inline?: boolean }> = [];
+  if (rating !== undefined) fields.push({ name: "Rating", value: `${rating}/5`, inline: true });
+  if (client?.device) fields.push({ name: "Device", value: oneLine(client.device, 100) || "", inline: true });
+  if (client?.browser) fields.push({ name: "Browser", value: oneLine(client.browser, 60) || "", inline: true });
+  if (client?.screen) fields.push({ name: "Screen", value: oneLine(client.screen, 60) || "", inline: true });
+  if (client?.locale) fields.push({ name: "Locale", value: oneLine(client.locale, 80) || "", inline: true });
+  if (client?.input) fields.push({ name: "Input", value: client.input, inline: true });
+  if (client?.id) fields.push({ name: "Device ID", value: oneLine(client.id, 40) || "", inline: true });
+
+  const embed = {
+    title: "ISRC Finder feedback",
+    description: oneLine(message.trim(), 3900) || "No message.",
+    color: 0x46a758,
+    timestamp: new Date().toISOString(),
+    fields,
+    footer: { text: "ISRC Finder · anonymous feedback" },
+  };
 
   const response = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      content,
+      content: "",
+      embeds: [embed],
       allowed_mentions: { parse: [] },
     }),
     signal: AbortSignal.timeout(8000),

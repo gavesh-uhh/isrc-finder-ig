@@ -35,7 +35,9 @@ test("reports Discord errors rather than claiming successful delivery", async (c
 
 test("includes the selected rating and rejects invalid ratings", async (context) => {
   const fetchMock = context.mock.method(globalThis, "fetch", async (_url: URL, init: RequestInit) => {
-    assert.equal(JSON.parse(init.body as string).content, "**ISRC Finder feedback**\nRating: 5/5\nGreat app");
+    const body = JSON.parse(init.body as string);
+    assert.equal(body.content, "");
+    assert.equal(body.embeds[0].fields.find((field: { name: string }) => field.name === "Rating")!.value, "5/5");
     return new Response(null, { status: 204 });
   });
   await sendDiscordFeedback("Great app", webhook, 5);
@@ -45,17 +47,31 @@ test("includes the selected rating and rejects invalid ratings", async (context)
   assert.equal(fetchMock.mock.callCount(), 1);
 });
 
-test("adds device details as single lines", async (context) => {
+test("adds device details to a Discord embed", async (context) => {
   context.mock.method(globalThis, "fetch", async (_url: URL, init: RequestInit) => {
-    assert.equal(
-      JSON.parse(init.body as string).content,
-      "**ISRC Finder feedback**\nRating: 4/5\nDevice: a1b2c3d4 — Win32 · 1920x1080@1x · en-US\nUA: Mozilla/5.0 X\nNice\nsecond line",
-    );
+    const body = JSON.parse(init.body as string);
+    assert.equal(body.content, "");
+    const embed = body.embeds[0];
+    assert.equal(embed.title, "ISRC Finder feedback");
+    assert.equal(embed.description, "Nice second line");
+    assert.equal(embed.fields.length, 6);
+    const field = (name: string) => embed.fields.find((field: { name: string }) => field.name === name);
+    assert.equal(field("Rating")!.value, "4/5");
+    assert.equal(field("Device")!.value, "iPhone · iOS 18.1");
+    assert.equal(field("Browser")!.value, "Safari 18");
+    assert.equal(field("Screen")!.value, "390 × 844 @3x");
+    assert.equal(field("Locale")!.value, "en-US · Europe/London");
+    assert.equal(field("Input")!.value, "Touch");
+    assert.equal(field("Device ID")!.value, "a1b2c3d4");
     return new Response(null, { status: 204 });
   });
   await sendDiscordFeedback("Nice\nsecond line", webhook, 4, {
     id: "a1b2c3d4",
-    summary: "Win32 · 1920x1080@1x · en-US",
+    device: "iPhone · iOS 18.1",
+    browser: "Safari 18",
+    screen: "390 × 844 @3x",
+    locale: "en-US · Europe/London",
+    input: "Touch",
     agent: "Mozilla/5.0\nX",
   });
 });

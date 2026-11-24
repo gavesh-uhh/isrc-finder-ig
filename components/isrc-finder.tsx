@@ -1340,7 +1340,7 @@ export default function IsrcFinder({ feedbackEnabled }: { feedbackEnabled: boole
             rel="noopener noreferrer"
           >
             <CoffeeIcon />
-            <span>Buy me a ☕</span>
+            <span>Donate</span>
           </a>
           <InstallButton />
           {feedbackEnabled ? <FeedbackButton /> : null}

@@ -1621,36 +1621,38 @@ button[type="submit"]:focus-visible {
 
 .helpful-prompt {
   position: fixed;
-  left: 50%;
+  left: 0;
+  right: 0;
   bottom: calc(20px + env(safe-area-inset-bottom, 0px));
   z-index: 40;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+  width: fit-content;
   max-width: calc(100% - 24px);
-  padding: 8px 8px 8px 14px;
+  margin-inline: auto;
+  padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
   box-shadow: 0 12px 40px rgb(0 0 0 / 30%);
-  transform: translateX(-50%);
   animation: helpful-prompt-in 0.25s ease both;
 }
 
-/* Own keyframes: track-row-fade-in's transform would override the centering. */
 @keyframes helpful-prompt-in {
   from {
     opacity: 0;
-    transform: translateX(-50%) translateY(8px);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
-    transform: translateX(-50%) translateY(0);
+    transform: translateY(0);
   }
 }
 
 .helpful-prompt p {
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
   margin: 0;
   font-size: 12.5px;
@@ -1659,13 +1661,15 @@ button[type="submit"]:focus-visible {
 
 .helpful-prompt-actions {
   display: flex;
-  flex: 0 0 auto;
+  flex: 1 1 auto;
   gap: 6px;
 }
 
 .helpful-prompt button {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  flex: 1 0 auto;
   gap: 5px;
   min-height: 32px;
   padding: 0 10px;
@@ -1864,8 +1868,6 @@ button[type="submit"]:focus-visible {
 
   .helpful-prompt {
     bottom: calc(14px + env(safe-area-inset-bottom, 0px));
-    gap: 10px;
-    padding: 8px 8px 8px 12px;
   }
 
   .helpful-prompt p {
